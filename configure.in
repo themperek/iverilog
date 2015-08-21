@@ -215,7 +215,7 @@ AX_LD_EXTRALIBS
 AX_C_PICFLAG
 
 # may modify LDFLAGS
-#AX_C99_STRTOD
+AX_C99_STRTOD
 
 # Processor specific compile flags
 case "${host}" in
