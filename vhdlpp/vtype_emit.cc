@@ -89,7 +89,7 @@ int VTypeArray::emit_with_dims_(std::ostream&out, bool packed, perm_string name)
 
       list<const VTypeArray*> dims;
       const VTypeArray*cur = this;
-      while (const VTypeArray*sub = dynamic_cast<const VTypeArray*> (cur->etype_)) {
+      while (const VTypeArray*sub = dynamic_cast<const VTypeArray*> (cur->element_type())) {
 	    dims.push_back(cur);
 	    cur = sub;
       }
@@ -132,7 +132,7 @@ int VTypeArray::emit_with_dims_(std::ostream&out, bool packed, perm_string name)
 int VTypeEnum::emit_def(ostream&out, perm_string name) const
 {
       int errors = 0;
-      out << "enum {";
+      out << "enum integer {";
       assert(names_.size() >= 1);
       out << "\\" << names_[0] << " ";
       for (size_t idx = 1 ; idx < names_.size() ; idx += 1)
@@ -148,9 +148,8 @@ int VTypePrimitive::emit_primitive_type(ostream&out) const
 {
       int errors = 0;
       switch (type_) {
-	  case BOOLEAN:
 	  case BIT:
-	    out << "bool";
+	    out << "bit";
 	    break;
 	  case STDLOGIC:
 	    out << "logic";
@@ -165,7 +164,10 @@ int VTypePrimitive::emit_primitive_type(ostream&out) const
 	    out << "real";
 	    break;
 	  case CHARACTER:
-	    out << "char";
+	    out << "byte";
+	    break;
+	  case TIME:
+	    out << "time";
 	    break;
 	  default:
 	    assert(0);
@@ -224,10 +226,9 @@ int VTypeDef::emit_def(ostream&out, perm_string name) const
 int VTypeDef::emit_decl(ostream&out, perm_string name, bool reg_flag) const
 {
       int errors = 0;
-      if (reg_flag)
-	    out << "reg ";
-      else
-	    out << "wire ";
+
+      if (!dynamic_cast<const VTypeEnum*>(type_))
+	    out << (reg_flag ? "reg " : "wire ");
 
       if(dynamic_cast<const VTypeArray*>(type_)) {
           errors += type_->emit_def(out, name);

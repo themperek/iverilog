@@ -1,7 +1,7 @@
 #ifndef IVL_vvp_net_H
 #define IVL_vvp_net_H
 /*
- * Copyright (c) 2004-2014 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2004-2015 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -27,6 +27,7 @@
 # include  <cstddef>
 # include  <cstdlib>
 # include  <cstring>
+# include  <string>
 # include  <new>
 # include  <cassert>
 
@@ -1039,7 +1040,7 @@ template <class T> class vvp_sub_pointer_t {
 
       vvp_sub_pointer_t(T*ptr__, unsigned port__)
       {
-	    bits_ = reinterpret_cast<unsigned long> (ptr__);
+	    bits_ = reinterpret_cast<uintptr_t> (ptr__);
 	    assert( (bits_  &  3) == 0 );
 	    assert( (port__ & ~3) == 0 );
 	    bits_ |= port__;
@@ -1061,7 +1062,7 @@ template <class T> class vvp_sub_pointer_t {
       bool operator != (vvp_sub_pointer_t that) const { return bits_ != that.bits_; }
 
     private:
-      unsigned long bits_;
+      uintptr_t bits_;
 };
 
 typedef vvp_sub_pointer_t<vvp_net_t> vvp_net_ptr_t;
@@ -1159,7 +1160,9 @@ class vvp_net_t {
       static void operator delete(void*); // not implemented
     private: // not implemented
       static void* operator new[](std::size_t size);
+#if defined(__GNUC__)
       static void operator delete[](void*);
+#endif
 };
 
 /*
@@ -1221,11 +1224,11 @@ class vvp_net_fun_t {
       virtual void recv_long_pv(vvp_net_ptr_t port, long bit,
                                 unsigned base, unsigned wid);
 
-	// This method is called when the net it forced or
+	// This method is called when the net is forced or
 	// released. This is very rarely needed; island ports use it
 	// to know that the net is being forced and that it needs to
 	// do something about it.
-      virtual void force_flag(void);
+      virtual void force_flag(bool run_now);
 
     public: // These objects are only permallocated.
       static void* operator new(std::size_t size) { return heap_.alloc(size); }

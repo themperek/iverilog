@@ -421,10 +421,17 @@ extern PLI_UINT32 vpi_mcd_open(char *name);
 extern PLI_UINT32 vpi_mcd_close(PLI_UINT32 mcd);
 extern char      *vpi_mcd_name(PLI_UINT32 mcd);
 extern PLI_INT32  vpi_mcd_printf(PLI_UINT32 mcd, const char*fmt, ...)
+#ifdef __MINGW32__
+      __attribute__((format (gnu_printf,2,3)));
+#else
       __attribute__((format (printf,2,3)));
-
+#endif
 extern PLI_INT32  vpi_printf(const char*fmt, ...)
+#ifdef __MINGW32__
+      __attribute__((format (gnu_printf,1,2)));
+#else
       __attribute__((format (printf,1,2)));
+#endif
 
 extern PLI_INT32  vpi_vprintf(const char*fmt, va_list ap);
 extern PLI_INT32  vpi_mcd_vprintf(PLI_UINT32 mcd, const char*fmt, va_list ap);
@@ -624,6 +631,10 @@ extern void vpip_format_strength(char*str, s_vpi_value*value, unsigned bit);
 extern void vpip_set_return_value(int value);
 extern s_vpi_vecval vpip_calc_clog2(vpiHandle arg);
 extern void vpip_make_systf_system_defined(vpiHandle ref);
+
+  /* Perform fwrite to mcd files. This is used to write raw data,
+     which may include nulls. */
+extern void vpip_mcd_rawwrite(PLI_UINT32 mcd, const char*buf, size_t count);
 
   /* Return driver information for a net bit. The information is returned
      in the 'counts' array as follows:

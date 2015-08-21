@@ -101,7 +101,7 @@ int Architecture::emit(ostream&out, Entity*entity)
       errors += emit_signals(out, entity, this);
       errors += emit_variables(out, entity, this);
 
-      for (map<perm_string,Subprogram*>::const_iterator cur = cur_subprograms_.begin()
+      for (map<perm_string,SubprogramHeader*>::const_iterator cur = cur_subprograms_.begin()
 		 ; cur != cur_subprograms_.end() ; ++ cur) {
 	    // Do not emit unbounded functions, we will just need fixed instances later
 	    if(!cur->second->unbounded())
@@ -149,6 +149,22 @@ int ComponentInstantiation::emit(ostream&out, Entity*ent, Architecture*arc)
       int errors = 0;
 
       arc->set_cur_component(this);
+
+      if(ComponentBase*comp = arc->find_component(cname_)) {
+        const std::vector<InterfacePort*>& generics = comp->get_generics();
+
+      if(generics.size() != generic_map_.size())
+	    // Display an error for generics that do not have neither
+	    // default nor component specific value defined
+	    for(vector<InterfacePort*>::const_iterator it = generics.begin();
+			it != generics.end(); ++it) {
+		if(!(*it)->expr && generic_map_.count((*it)->name) == 0) {
+		    cerr << get_fileline() << ": generic " << (*it)->name <<
+			"value is not defined" << endl;
+		    ++errors;
+		}
+	    }
+      }
 
       out << cname_;
       if (! generic_map_.empty()) {

@@ -156,7 +156,7 @@ class VTypeERROR : public VType {
 class VTypePrimitive : public VType {
 
     public:
-      enum type_t { BOOLEAN, BIT, INTEGER, NATURAL, REAL, STDLOGIC, CHARACTER };
+      enum type_t { BIT, INTEGER, NATURAL, REAL, STDLOGIC, CHARACTER, TIME };
 
     public:
       VTypePrimitive(type_t tt, bool packed = false);
@@ -179,14 +179,6 @@ class VTypePrimitive : public VType {
       type_t type_;
       bool packed_;
 };
-
-extern const VTypePrimitive primitive_BOOLEAN;
-extern const VTypePrimitive primitive_BIT;
-extern const VTypePrimitive primitive_INTEGER;
-extern const VTypePrimitive primitive_NATURAL;
-extern const VTypePrimitive primitive_REAL;
-extern const VTypePrimitive primitive_STDLOGIC;
-extern const VTypePrimitive primitive_CHARACTER;
 
 /*
  * An array is a compound N-dimensional array of element type. The
@@ -264,6 +256,8 @@ class VTypeArray : public VType {
     private:
       int emit_with_dims_(std::ostream&out, bool packed, perm_string name) const;
 
+	// Handles a few special types of array (*_vector, string types).
+      bool write_special_case(std::ostream&out) const;
       void write_range_to_stream_(std::ostream&fd) const;
 
       const VType*etype_;
@@ -275,10 +269,10 @@ class VTypeArray : public VType {
 class VTypeRange : public VType {
 
     public:
-      VTypeRange(const VType*base, int64_t max_val, int64_t min_val);
+      VTypeRange(const VType*base, int64_t end, int64_t start);
       ~VTypeRange();
 
-      VType*clone() const { return new VTypeRange(base_->clone(), max_, min_); }
+      VType*clone() const { return new VTypeRange(base_->clone(), start_, end_); }
 
 	// Get the type that is limited by the range.
       inline const VType* base_type() const { return base_; }
@@ -289,7 +283,7 @@ class VTypeRange : public VType {
 
     private:
       const VType*base_;
-      int64_t max_, min_;
+      int64_t end_, start_;
 };
 
 class VTypeEnum : public VType {
@@ -361,6 +355,8 @@ class VTypeDef : public VType {
       ~VTypeDef();
 
       VType*clone() const { return new VTypeDef(*this); }
+
+      bool type_match(const VType*that) const;
 
       inline perm_string peek_name() const { return name_; }
 

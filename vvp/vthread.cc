@@ -949,7 +949,7 @@ bool of_ASSIGN_VEC4_A_D(vthread_t thr, vvp_code_t cp)
       unsigned wid = val.size();
       const unsigned array_wid = cp->array->get_word_size();
 
-	// Abort if flags[4] is set. This can happen if the calulation
+	// Abort if flags[4] is set. This can happen if the calculation
 	// into an index register failed.
       if (thr->flags[4] == BIT4_1)
 	    return true;
@@ -992,7 +992,7 @@ bool of_ASSIGN_VEC4_A_E(vthread_t thr, vvp_code_t cp)
       unsigned wid = val.size();
       const unsigned array_wid = cp->array->get_word_size();
 
-	// Abort if flags[4] is set. This can happen if the calulation
+	// Abort if flags[4] is set. This can happen if the calculation
 	// into an index register failed.
       if (thr->flags[4] == BIT4_1)
 	    return true;
@@ -1038,7 +1038,7 @@ bool of_ASSIGN_VEC4_OFF_D(vthread_t thr, vvp_code_t cp)
       int off = thr->words[off_index].w_int;
       vvp_time64_t del = thr->words[del_index].w_uint;
 
-	// Abort if flags[4] is set. This can happen if the calulation
+	// Abort if flags[4] is set. This can happen if the calculation
 	// into an index register failed.
       if (thr->flags[4] == BIT4_1)
 	    return true;
@@ -1080,7 +1080,7 @@ bool of_ASSIGN_VEC4_OFF_E(vthread_t thr, vvp_code_t cp)
 
       int off = thr->words[off_index].w_int;
 
-	// Abort if flags[4] is set. This can happen if the calulation
+	// Abort if flags[4] is set. This can happen if the calculation
 	// into an index register failed.
       if (thr->flags[4] == BIT4_1)
 	    return true;
@@ -2859,6 +2859,14 @@ bool of_FORCE_VEC4_OFF(vthread_t thr, vvp_code_t cp)
 	    mask.set_bit(base+idx, 1);
 
       vvp_vector4_t tmp (use_size, BIT4_Z);
+
+	// vvp_net_t::force_vec4 propagates all the bits of the
+	// forced vector value, regardless of the mask. This
+	// ensures the unforced bits retain their current value.
+      vvp_signal_value*sig = dynamic_cast<vvp_signal_value*>(net->fil);
+      assert(sig);
+      sig->vec4_value(tmp);
+
       tmp.set_vec(base, value);
 
       net->force_vec4(tmp, mask);
@@ -4794,7 +4802,7 @@ static bool do_release_vec(vvp_code_t cp, bool net_flag)
       } else {
 	    net->fil->release_pv(ptr, base, width, net_flag);
       }
-      net->fun->force_flag();
+      net->fun->force_flag(false);
 
       return true;
 }
@@ -5810,6 +5818,7 @@ bool of_EXEC_UFUNC(vthread_t thr, vvp_code_t cp)
       child->rd_context = child_context;
 
       child->is_scheduled = 1;
+	  child->delay_delete = 1;
       vthread_run(child);
       running_thread = thr;
 

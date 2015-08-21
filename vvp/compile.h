@@ -208,21 +208,22 @@ extern void compile_cmp_ne_r(char*label, unsigned argc, struct symb_s*argv);
 extern void compile_cmp_ge_r(char*label, unsigned argc, struct symb_s*argv);
 extern void compile_cmp_gt_r(char*label, unsigned argc, struct symb_s*argv);
 
-extern void compile_dff(char*label,
+extern void compile_dff(char*label, unsigned width, bool negedge,
 			struct symb_s arg_d,
 			struct symb_s arg_c,
 			struct symb_s arg_e);
 
-extern void compile_dff_aclr(char*label,
+extern void compile_dff_aclr(char*label, unsigned width, bool negedge,
 			     struct symb_s arg_d,
 			     struct symb_s arg_c,
 			     struct symb_s arg_e,
 			     struct symb_s arg_a);
-extern void compile_dff_aset(char*label,
+extern void compile_dff_aset(char*label, unsigned width, bool negedge,
 			     struct symb_s arg_d,
 			     struct symb_s arg_c,
 			     struct symb_s arg_e,
-			     struct symb_s arg_a);
+			     struct symb_s arg_a,
+			     char*asc_value);
 
 extern void compile_enum2_type(char*label, long width, bool signed_flag,
 			      std::list<struct enum_name_s>*names);
@@ -512,7 +513,7 @@ extern void compile_port_info( unsigned index, int vpi_port_type, unsigned width
  * given name.
  *
  * The vpi_type_code argument of compile_net() is one of the vpi
- * object codes for the equivelent variable types. The supported codes
+ * object codes for the equivalent variable types. The supported codes
  * are:
  *   vpiLogic  -- 4-value logic
  *   vpiIntVar -- 2-value logic

@@ -55,9 +55,6 @@ VTypePrimitive::~VTypePrimitive()
 void VTypePrimitive::show(ostream&out) const
 {
       switch (type_) {
-	  case BOOLEAN:
-	    out << "BOOLEAN";
-	    break;
 	  case BIT:
 	    out << "BIT";
 	    break;
@@ -76,13 +73,15 @@ void VTypePrimitive::show(ostream&out) const
 	  case STDLOGIC:
 	    out << "STD_LOGIC";
 	    break;
+	  case TIME:
+	    out << "TIME";
+	    break;
       }
 }
 
 int VTypePrimitive::get_width(ScopeBase*) const
 {
     switch(type_) {
-        case BOOLEAN:
         case BIT:
         case STDLOGIC:
             return 1;
@@ -263,21 +262,18 @@ bool VTypeArray::is_variable_length(ScopeBase*scope) const {
 void VTypeArray::evaluate_ranges(ScopeBase*scope) {
     for(std::vector<range_t>::iterator it = ranges_.begin(); it != ranges_.end(); ++it ) {
         int64_t lsb_val = -1, msb_val = -1;
-        bool dir = it->is_downto();
 
         if(it->msb()->evaluate(scope, msb_val) && it->lsb()->evaluate(scope, lsb_val)) {
             assert(lsb_val >= 0);
             assert(msb_val >= 0);
-            *it = range_t(new ExpInteger(msb_val), new ExpInteger(lsb_val), dir);
+            *it = range_t(new ExpInteger(msb_val), new ExpInteger(lsb_val), msb_val > lsb_val);
         }
     }
 }
 
-VTypeRange::VTypeRange(const VType*base, int64_t max_val, int64_t min_val)
-: base_(base)
+VTypeRange::VTypeRange(const VType*base, int64_t end_val, int64_t start_val)
+: base_(base), end_(end_val), start_(start_val)
 {
-      max_ = max_val;
-      min_ = min_val;
 }
 
 VTypeRange::~VTypeRange()

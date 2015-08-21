@@ -1,7 +1,7 @@
 #ifndef IVL_ivl_target_H
 #define IVL_ivl_target_H
 /*
- * Copyright (c) 2000-2014 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2000-2015 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -39,6 +39,12 @@
 
 #ifndef __GNUC__
 # define __attribute__(x)
+#endif
+
+#if defined(__cplusplus) && defined(_MSC_VER)
+# define ENUM_UNSIGNED_INT : unsigned int
+#else
+# define ENUM_UNSIGNED_INT
 #endif
 
 _BEGIN_DECL
@@ -201,7 +207,7 @@ typedef enum ivl_dis_domain_e {
       IVL_DIS_CONTINUOUS = 2
 } ivl_dis_domain_t;
 
-typedef enum ivl_drive_e {
+typedef enum ivl_drive_e ENUM_UNSIGNED_INT {
       IVL_DR_HiZ    = 0,
       IVL_DR_SMALL  = 1,
       IVL_DR_MEDIUM = 2,
@@ -243,7 +249,7 @@ typedef enum ivl_expr_type_e {
       IVL_EX_UNARY = 14
 } ivl_expr_type_t;
 
-typedef enum ivl_select_type_e {
+typedef enum ivl_select_type_e ENUM_UNSIGNED_INT {
       IVL_SEL_OTHER = 0,
       IVL_SEL_IDX_UP = 1,
       IVL_SEL_IDX_DOWN = 2
@@ -300,7 +306,7 @@ typedef enum ivl_lpm_type_e {
       IVL_LPM_CONCAT = 16,
       IVL_LPM_CONCATZ = 36, /* Transparent concat */
       IVL_LPM_CMP_EEQ= 18, /* Case EQ (===) */
-      IVL_LPM_CMP_EQX= 37, /* Windcard EQ (==?) */
+      IVL_LPM_CMP_EQX= 37, /* Wildcard EQ (==?) */
       IVL_LPM_CMP_EQZ= 38, /* casez EQ */
       IVL_LPM_CMP_EQ = 10,
       IVL_LPM_CMP_GE =  1,
@@ -345,7 +351,7 @@ typedef enum ivl_path_edge_e {
 
 /* Processes are initial, always, or final blocks with a statement. This is
    the type of the ivl_process_t object. */
-typedef enum ivl_process_type_e {
+typedef enum ivl_process_type_e ENUM_UNSIGNED_INT {
       IVL_PR_INITIAL = 0,
       IVL_PR_ALWAYS  = 1,
       IVL_PR_FINAL   = 2
@@ -431,7 +437,7 @@ typedef enum ivl_sfunc_as_task_e {
 
 /* This is the type of a variable, and also used as the type for an
    expression. */
-typedef enum ivl_variable_type_e {
+typedef enum ivl_variable_type_e ENUM_UNSIGNED_INT {
       IVL_VT_VOID    = 0,  /* Not used */
       IVL_VT_NO_TYPE = 1,  /* Place holder for missing/unknown type. */
       IVL_VT_REAL    = 2,
@@ -1285,8 +1291,8 @@ extern unsigned    ivl_lpm_lineno(ivl_lpm_t net);
  * magnitude compare, the signedness does matter. In any case, the
  * result of the compare is always unsigned.
  *
- * The EQX and EQZ nodes are windcard compares, where xz bits (EQX) or
- * z bits (EQZ) in the data(1) operand are treated as windcards. no
+ * The EQX and EQZ nodes are wildcard compares, where xz bits (EQX) or
+ * z bits (EQZ) in the data(1) operand are treated as wildcards. no
  * bits in the data(0) operand are wild. This matches the
  * SystemVerilog convention for the ==? operator.
  *
@@ -1418,6 +1424,7 @@ extern ivl_signal_t ivl_lpm_array(ivl_lpm_t net);
   /* IVL_LPM_PART IVL_LPM_SUBSTITUTE */
 extern unsigned ivl_lpm_base(ivl_lpm_t net);
   /* IVL_LPM_FF */
+extern unsigned    ivl_lpm_negedge(ivl_lpm_t net);
 extern ivl_nexus_t ivl_lpm_clk(ivl_lpm_t net);
   /* IVL_LPM_UFUNC */
 extern ivl_scope_t  ivl_lpm_define(ivl_lpm_t net);
@@ -2341,5 +2348,7 @@ typedef const char* (*target_query_f) (const char*key);
 
 
 _END_DECL
+
+#undef ENUM_UNSIGNED_INT
 
 #endif /* IVL_ivl_target_H */

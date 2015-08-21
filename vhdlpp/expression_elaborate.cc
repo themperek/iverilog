@@ -25,6 +25,7 @@
 # include  "vsignal.h"
 # include  "subprogram.h"
 # include  "library.h"
+# include  "std_types.h"
 # include  <iostream>
 # include  <typeinfo>
 # include  "parse_types.h"
@@ -112,7 +113,7 @@ int ExpName::elaborate_lval_(Entity*ent, ScopeBase*scope, bool is_sequ, ExpName*
       const VType*found_type = 0;
 
       if (const InterfacePort*cur = ent->find_port(name_)) {
-	    if (cur->mode != PORT_OUT) {
+	    if (cur->mode != PORT_OUT && cur->mode != PORT_INOUT) {
 		  cerr << get_fileline() << ": error: Assignment to "
 			"input port " << name_ << "." << endl;
 		  return errors + 1;
@@ -216,7 +217,7 @@ int ExpName::elaborate_lval(Entity*ent, ScopeBase*scope, bool is_sequ)
       const VType*found_type = 0;
 
       if (const InterfacePort*cur = ent->find_port(name_)) {
-	    if (cur->mode != PORT_OUT) {
+	    if (cur->mode != PORT_OUT && cur->mode != PORT_INOUT) {
 		  cerr << get_fileline() << ": error: Assignment to "
 			"input port " << name_ << "." << endl;
 		  return errors += 1;
@@ -303,6 +304,9 @@ int ExpName::elaborate_rval(Entity*ent, ScopeBase*scope, const InterfacePort*lva
       } else if (scope->find_constant(name_, dummy_type, dummy_expr)) {
 	      /* OK */
 
+      } else if (scope->is_enum_name(name_)) {
+	      /* OK */
+
       } else {
             cerr << get_fileline() << ": error: No port, signal or constant " << name_
 		 << " to be used as r-value." << endl;
@@ -370,6 +374,13 @@ int ExpBinary::elaborate_exprs(Entity*ent, ScopeBase*scope, const VType*ltype)
 const VType*ExpUnary::fit_type(Entity*ent, ScopeBase*scope, const VTypeArray*atype) const
 {
       return operand1_->fit_type(ent, scope, atype);
+}
+
+int ExpUnary::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*ltype)
+{
+      ivl_assert(*this, ltype != 0);
+      set_type(ltype);
+      return operand1_->elaborate_expr(ent, scope, ltype);
 }
 
 const VType*ExpAggregate::probe_type(Entity*ent, ScopeBase*scope) const
@@ -714,22 +725,16 @@ int ExpConditional::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*ltyp
 
 	/* Note that the type for the condition expression need not
 	   have anything to do with the type of this expression. */
-      errors += cond_->elaborate_expr(ent, scope, 0);
 
-      for (list<Expression*>::const_iterator cur = true_clause_.begin()
-		 ; cur != true_clause_.end() ; ++cur) {
-	    errors += (*cur)->elaborate_expr(ent, scope, ltype);
-      }
-
-      for (list<else_t*>::const_iterator cur = else_clause_.begin()
-		 ; cur != else_clause_.end() ; ++cur) {
+      for (list<case_t*>::const_iterator cur = options_.begin()
+		 ; cur != options_.end() ; ++cur) {
 	    errors += (*cur)->elaborate_expr(ent, scope, ltype);
       }
 
       return errors;
 }
 
-int ExpConditional::else_t::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*ltype)
+int ExpConditional::case_t::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*ltype)
 {
       int errors = 0;
 
@@ -744,52 +749,21 @@ int ExpConditional::else_t::elaborate_expr(Entity*ent, ScopeBase*scope, const VT
       return errors;
 }
 
-const VType*ExpFunc::probe_type(Entity*ent, ScopeBase*scope) const
+const VType*ExpFunc::probe_type(Entity*, ScopeBase*scope) const
 {
-      if(name_ == "integer")
-          return &primitive_INTEGER;
+      SubprogramHeader*prog = def_;
 
-      if(name_ == "unsigned" || name_ == "resize") {
-          if(argv_.empty())
-              return NULL;
-
-          const VType*type = argv_[0]->probe_type(ent, scope);
-          if(!type)
-              return NULL;
-
-          int msb = type->get_width(scope) - 1;
-          ivl_assert(*this, msb >= 0);
-
-          // Determine the sign
-          bool sign = false;
-          if(name_ == "resize") {
-              if(const VTypeArray*arr = dynamic_cast<const VTypeArray*>(type))
-                  sign = arr->signed_vector();
-          }
-
-          return new VTypeArray(&primitive_BIT, msb, 0, sign);
+      if(!prog) {
+          prog = scope->find_subprogram(name_);
       }
 
-      if(name_ == "std_logic_vector" || name_ == "conv_std_logic_vector") {
-          if(argv_.empty())
-              return NULL;
+      if(!prog)
+          prog = library_find_subprogram(name_);
 
-          const VType*type = argv_[0]->probe_type(ent, scope);
-          if(!type)
-              return NULL;
-
-          int msb = type->get_width(scope) - 1;
-
-          return new VTypeArray(&primitive_STDLOGIC, msb, 0);
+      if(!prog) {
+          cerr << get_fileline() << ": sorry: VHDL function " << name_ << " not yet implemented" << endl;
+          ivl_assert(*this, false);
       }
-
-      Subprogram*prog = scope->find_subprogram(name_);
-
-      if(!prog)
-            prog = library_find_subprogram(name_);
-
-      if(!prog)
-            return NULL;
 
       return prog->peek_return_type();
 }
@@ -799,7 +773,7 @@ int ExpFunc::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*)
       int errors = 0;
 
       ivl_assert(*this, scope);
-      Subprogram*prog = scope->find_subprogram(name_);
+      SubprogramHeader*prog = scope->find_subprogram(name_);
 
       if(!prog)
             prog = library_find_subprogram(name_);
@@ -818,9 +792,17 @@ int ExpFunc::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*)
 	    errors += argv_[idx]->elaborate_expr(ent, scope, tmp);
       }
 
-      if(def_ && def_->unbounded()) {
+	// SystemVerilog functions work only with defined size data types, therefore
+	// if header does not specify argument or return type size, create a function
+	// instance that work with this particular size.
+      if(def_ && !def_->is_std() && def_->unbounded()) {
             def_ = prog->make_instance(argv_, scope);
             name_ = def_->name();
+      }
+
+      if(!def_) {
+            cerr << get_fileline() << ": error: could not find function " << name_ << endl;
+            ++errors;
       }
 
       return errors;
@@ -828,69 +810,7 @@ int ExpFunc::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*)
 
 const VType* ExpFunc::fit_type(Entity*ent, ScopeBase*scope, const VTypeArray*) const
 {
-      // Built-in functions
-      if(name_ == "to_integer" || name_ == "unsigned" || name_ == "integer") {
-          ivl_assert(*this, argv_.size() == 1);
-
-          const VType*type = argv_[0]->probe_type(ent, scope);
-          ivl_assert(*this, type);
-
-          // Determine the sign
-          bool sign = false;
-
-          if(name_ == "integer") {
-              sign = true;
-          } else if(name_ == "to_integer") {
-              if(const VTypeArray*arr = dynamic_cast<const VTypeArray*>(type))
-                  sign = arr->signed_vector();
-          }
-
-          return new VTypeArray(&primitive_BIT, type->get_width(scope), 0, sign);
-      }
-
-      if(name_ == "to_unsigned" || name_ == "std_logic_vector" ||
-         name_ == "conv_std_logic_vector" || name_ == "resize")
-      {
-          ivl_assert(*this, argv_.size() == 2);
-
-          // Determine the sign
-          bool sign = false;
-          const VType*element = &primitive_STDLOGIC;
-
-          if(name_ == "resize") {
-              const VType*type = argv_[0]->probe_type(ent, scope);
-              ivl_assert(*this, type);
-
-              if(const VTypeArray*arr = dynamic_cast<const VTypeArray*>(type))
-              {
-                  sign = arr->signed_vector();
-                  element = arr->element_type();
-              }
-          } else if(name_ == "to_unsigned") {
-              element = &primitive_BIT;
-          }
-
-          int64_t width = 0;
-          bool evaluated = argv_[1]->evaluate(scope, width);
-          ivl_assert(*this, evaluated);
-
-          return new VTypeArray(element, width, 0, sign);
-      }
-
-      // Other cases
-      Subprogram*prog = def_;
-
-      if(!prog) {
-          ivl_assert(*this, scope);
-          prog = scope->find_subprogram(name_);
-      }
-
-      if(!prog)
-          prog = library_find_subprogram(name_);
-
-      ivl_assert(*this, prog);
-
-      return def_->peek_return_type();
+      return probe_type(ent, scope);
 }
 
 const VType* ExpInteger::probe_type(Entity*, ScopeBase*) const
@@ -954,7 +874,7 @@ const VType* ExpName::probe_prefix_type_(Entity*ent, ScopeBase*scope) const
 }
 
 /*
- * This method is the probe_type() imlementation for ExpName objects
+ * This method is the probe_type() implementation for ExpName objects
  * that have prefix parts. In this case we try to get the type of the
  * prefix and interpret the name in that context.
  */
@@ -1020,19 +940,22 @@ const VType* ExpName::probe_type(Entity*ent, ScopeBase*scope) const
         if (Variable*var = scope->find_variable(name_))
                 return var->peek_type();
 
-        const VType*ctype = 0;
+        const VType*type = 0;
         Expression*cval = 0;
-        if (scope->find_constant(name_, ctype, cval))
-                return ctype;
+        if (scope->find_constant(name_, type, cval))
+                return type;
 
-        const VType*gtype = 0;
         Architecture*arc = dynamic_cast<Architecture*>(scope);
-        if (arc && (gtype = arc->probe_genvar_type(name_))) {
-                return gtype;
+        if (arc && (type = arc->probe_genvar_type(name_))) {
+                return type;
         }
 
-        if (scope->is_enum_name(name_)) {
-            return &primitive_INTEGER;
+        if (const InterfacePort*port = scope->find_param(name_)) {
+            return port->type;
+        }
+
+        if ((type = scope->is_enum_name(name_))) {
+            return type;
         }
       }
 
@@ -1046,12 +969,21 @@ const VType* ExpName::fit_type(Entity*ent, ScopeBase*scope, const VTypeArray*)co
       return probe_type(ent, scope);
 }
 
-int ExpName::elaborate_expr(Entity*, ScopeBase*, const VType*ltype)
+int ExpName::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*ltype)
 {
       if (ltype) {
 	    ivl_assert(*this, ltype != 0);
 	    set_type(ltype);
       }
+
+      if(prefix_.get())
+	    prefix_.get()->elaborate_expr(ent, scope, NULL);
+
+      if(index_)
+	    index_->elaborate_expr(ent, scope, &primitive_INTEGER);
+
+      if(lsb_)
+	    lsb_->elaborate_expr(ent, scope, &primitive_INTEGER);
 
       return 0;
 }
@@ -1063,7 +995,7 @@ const VType* ExpNameALL::probe_type(Entity*, ScopeBase*) const
 
 const VType* ExpRelation::probe_type(Entity*, ScopeBase*) const
 {
-      return &primitive_BOOLEAN;
+      return &type_BOOLEAN;
 }
 
 int ExpRelation::elaborate_expr(Entity*ent, ScopeBase*scope, const VType*ltype)
@@ -1121,9 +1053,8 @@ int ExpString::elaborate_expr(Entity*, ScopeBase*, const VType*ltype)
       return 0;
 }
 
-int ExpUNot::elaborate_expr(Entity*, ScopeBase*, const VType*ltype)
+int ExpTime::elaborate_expr(Entity*, ScopeBase*, const VType*)
 {
-      ivl_assert(*this, ltype != 0);
-      set_type(ltype);
+      set_type(&primitive_INTEGER);
       return 0;
 }

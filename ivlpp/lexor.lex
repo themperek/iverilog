@@ -1,7 +1,7 @@
 %option prefix="yy"
 %{
 /*
- * Copyright (c) 1999-2014 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 1999-2015 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -39,6 +39,7 @@ static void  def_finish(void);
 static void  def_undefine(void);
 static void  do_define(void);
 static int   def_is_done(void);
+static void  def_continue(void);
 static int   is_defined(const char*name);
 
 static int   macro_needs_args(const char*name);
@@ -358,6 +359,8 @@ keywords (include|define|undef|ifdef|ifndef|else|elseif|endif)
     if (def_is_done()) {
         def_finish();
         yy_pop_state();
+    } else {
+	def_continue();
     }
 
     istack->lineno += 1;
@@ -532,6 +535,8 @@ keywords (include|define|undef|ifdef|ifndef|else|elseif|endif)
       }
 }
 
+`` { if (istack->file != NULL) ECHO; }
+
 <MA_START>\(  { BEGIN(MA_ADD); macro_start_args(); }
 
 <MA_START>{W} {}
@@ -568,8 +573,12 @@ keywords (include|define|undef|ifdef|ifndef|else|elseif|endif)
 
 <MA_ADD>"(" { macro_add_to_arg(0); ma_parenthesis_level++; }
 
-<MA_ADD>"," { if (ma_parenthesis_level > 0) macro_add_to_arg(0);
-              else macro_finish_arg(); }
+<MA_ADD>"," {
+    if (ma_parenthesis_level > 0)
+	macro_add_to_arg(0);
+    else
+	macro_finish_arg();
+}
 
 <MA_ADD>")" {
     if (ma_parenthesis_level > 0) {
@@ -729,7 +738,7 @@ static int is_defined(const char*name)
  * particular, keep the names and name lengths in a compact stretch of
  * memory. Note that we do not keep the argument names once the
  * definition is fully processed, because arguments are always
- * positional and the definition string hs replaced with position
+ * positional and the definition string is replaced with position
  * tokens.
  */
 static char* def_buf = 0;
@@ -811,7 +820,7 @@ static void def_add_arg(void)
 		val[val_length] = 0;
 	  }
 
-	    /* Strip white space from betwen arg and "=". */
+	    /* Strip white space from between arg and "=". */
 	  length = strlen(arg);
 	  while (length>0 && isspace(arg[length-1])) {
 		length -= 1;
@@ -950,6 +959,11 @@ static size_t magic_cnt = 0;
 #define _STR1(x) #x
 #define _STR2(x) _STR1(x)
 
+static int is_id_char(char c)
+{
+    return isalnum((int)c) || c == '_' || c == '$';
+}
+
 /*
  * Find an argument, but only if it is not directly preceded by something
  * that would make it part of another simple identifier ([a-zA-Z0-9_$]).
@@ -964,12 +978,8 @@ static char *find_arg(char*ptr, char*head, char*arg)
         cp = strstr(cp, arg);
         if (!cp) break;
 
-        /* If we are not at the start of the string verify that this
-         * match is not in the middle of another identifier.
-         */
-        if (cp != head &&
-            (isalnum((int)*(cp-1)) || *(cp-1) == '_' || *(cp-1) == '$' ||
-             isalnum((int)*(cp+len)) || *(cp+len) == '_' || *(cp+len) == '$')) {
+        /* Verify that this match is not in the middle of another identifier. */
+        if ((cp != head && is_id_char(cp[-1])) || is_id_char(cp[len])) {
             cp++;
             continue;
         }
@@ -1121,6 +1131,14 @@ static void do_define(void)
 static int def_is_done(void)
 {
     return !define_continue_flag;
+}
+
+/*
+ * Reset the define_continue_flag.
+ */
+static void def_continue(void)
+{
+    define_continue_flag = 0;
 }
 
 /*
@@ -1299,14 +1317,30 @@ static void macro_add_to_arg(int is_white_space)
 
 static void macro_finish_arg(void)
 {
-    char* tail = &def_buf[def_buf_size - def_buf_free];
+    int   offs;
+    char* head;
+    char* tail;
 
     check_for_max_args();
 
+    offs = def_argo[def_argc-1] + def_argl[def_argc-1] + 1;
+    head = &def_buf[offs];
+    tail = &def_buf[def_buf_size - def_buf_free];
+
+    /* Eat any leading and trailing white space. */
+    if ((head < tail) && (*head == ' ')) {
+	offs++;
+	head++;
+    }
+    if ((tail > head) && (*(tail-1) == ' ')) {
+	def_buf_free++;
+	tail--;
+    }
+
     *tail = 0;
 
-    def_argo[def_argc] = def_argo[def_argc-1] + def_argl[def_argc-1] + 1;
-    def_argl[def_argc] = tail - def_argv(def_argc);
+    def_argo[def_argc] = offs;
+    def_argl[def_argc] = tail - head;
 
     def_buf_free -= 1;
     def_argc++;
@@ -1345,11 +1379,22 @@ static void expand_using_args(void)
     int arg;
     int length;
 
-    if (def_argc != cur_macro->argc) {
+    if (def_argc > cur_macro->argc) {
         emit_pathline(istack);
-        fprintf(stderr, "error: wrong number of arguments for `%s\n", cur_macro->name);
+        fprintf(stderr, "error: too many arguments for `%s\n", cur_macro->name);
         return;
     }
+    while (def_argc < cur_macro->argc) {
+	if (cur_macro->defaults[def_argc]) {
+	    def_argl[def_argc] = 0;
+	    def_argc += 1;
+	    continue;
+	}
+        emit_pathline(istack);
+        fprintf(stderr, "error: too few arguments for `%s\n", cur_macro->name);
+        return;
+    }
+    assert(def_argc == cur_macro->argc);
 
     head = cur_macro->value;
     tail = head;
@@ -1898,11 +1943,7 @@ static int load_next_input(void)
 static void do_dump_precompiled_defines(FILE* out, struct define_t* table)
 {
     if (!table->keyword)
-#ifdef __MINGW32__  /* MinGW does not know about z. */
-        fprintf(out, "%s:%d:%d:%s\n", table->name, table->argc, strlen(table->value), table->value);
-#else
         fprintf(out, "%s:%d:%zd:%s\n", table->name, table->argc, strlen(table->value), table->value);
-#endif
 
     if (table->left) do_dump_precompiled_defines(out, table->left);
 

@@ -27,14 +27,23 @@
 # include  "StringHeap.h"
 # include  "LineInfo.h"
 
-typedef enum { PORT_NONE=0, PORT_IN, PORT_OUT } port_mode_t;
+typedef enum { PORT_NONE=0, PORT_IN, PORT_OUT, PORT_INOUT } port_mode_t;
 
 class Architecture;
 class Expression;
 
 class InterfacePort : public LineInfo {
     public:
-      InterfacePort() { mode = PORT_NONE; type=0; expr=0; }
+      InterfacePort(port_mode_t mod = PORT_NONE,
+                    perm_string nam = empty_perm_string,
+                    const VType*typ = NULL,
+                    Expression*exp = NULL)
+          : mode(mod), name(nam), type(typ), expr(exp)
+      {}
+
+      InterfacePort(const VType*typ)
+          : mode(PORT_NONE), type(typ), expr(NULL)
+      {}
 
 	// Port direction from the source code.
       port_mode_t mode;
@@ -63,6 +72,7 @@ class ComponentBase : public LineInfo {
 
       const InterfacePort* find_port(perm_string by_name) const;
       const InterfacePort* find_generic(perm_string by_name) const;
+      const std::vector<InterfacePort*>& get_generics() const { return parms_; }
 
 	// Declare the ports for the entity. The parser calls this
 	// method with a list of interface elements that were parsed

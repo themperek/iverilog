@@ -22,8 +22,7 @@
 
 # include  "LineInfo.h"
 # include "parse_types.h"
-# include  <list>
-# include  <functional>
+# include  <set>
 
 class ScopeBase;
 class Entity;
@@ -204,6 +203,7 @@ class ProcedureCall : public SequentialStmt {
     public:
       ProcedureCall(perm_string name);
       ProcedureCall(perm_string name, std::list<named_expr_t*>* param_list);
+      ProcedureCall(perm_string name, std::list<Expression*>* param_list);
       ~ProcedureCall();
 
       int elaborate(Entity*ent, ScopeBase*scope);
@@ -213,6 +213,7 @@ class ProcedureCall : public SequentialStmt {
     private:
       perm_string name_;
       std::list<named_expr_t*>* param_list_;
+      SubprogramHeader*def_;
 };
 
 class VariableSeqAssignment  : public SequentialStmt {
@@ -271,6 +272,71 @@ class BasicLoopStatement : public LoopStatement {
 
       int elaborate(Entity*ent, ScopeBase*scope);
       void dump(ostream&out, int indent) const;
+};
+
+class ReportStmt : public SequentialStmt {
+    public:
+      typedef enum { UNSPECIFIED, NOTE, WARNING, ERROR, FAILURE } severity_t;
+
+      ReportStmt(const char*message, severity_t severity = NOTE);
+      virtual ~ReportStmt() {}
+
+      void dump(ostream&out, int indent) const;
+      int emit(ostream&out, Entity*entity, ScopeBase*scope);
+      void write_to_stream(std::ostream&fd);
+
+      inline const std::string& message() const { return msg_; }
+      inline severity_t severity() const { return severity_; }
+
+    protected:
+      std::string msg_;
+      severity_t severity_;
+};
+
+class AssertStmt : public ReportStmt {
+    public:
+      AssertStmt(Expression*condition, const char*message, ReportStmt::severity_t severity = ReportStmt::ERROR);
+
+      void dump(ostream&out, int indent) const;
+      int elaborate(Entity*ent, ScopeBase*scope);
+      int emit(ostream&out, Entity*entity, ScopeBase*scope);
+      void write_to_stream(std::ostream&fd);
+
+    private:
+      Expression*cond_;
+
+      // Message displayed when there is no report assigned.
+      static const std::string default_msg_;
+};
+
+class WaitForStmt : public SequentialStmt {
+    public:
+      WaitForStmt(Expression*delay);
+
+      void dump(ostream&out, int indent) const;
+      int elaborate(Entity*ent, ScopeBase*scope);
+      int emit(ostream&out, Entity*entity, ScopeBase*scope);
+      void write_to_stream(std::ostream&fd);
+
+    private:
+      Expression*delay_;
+};
+
+class WaitStmt : public SequentialStmt {
+    public:
+      typedef enum { ON, UNTIL } wait_type_t;
+      WaitStmt(wait_type_t type, Expression*expression);
+
+      void dump(ostream&out, int indent) const;
+      int elaborate(Entity*ent, ScopeBase*scope);
+      int emit(ostream&out, Entity*entity, ScopeBase*scope);
+      void write_to_stream(std::ostream&fd);
+
+    private:
+      wait_type_t type_;
+      Expression*expr_;
+      // Sensitivity list for 'wait until' statement
+      std::set<ExpName*> sens_list_;
 };
 
 #endif /* IVL_sequential_H */

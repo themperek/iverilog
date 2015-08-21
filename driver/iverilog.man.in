@@ -1,4 +1,4 @@
-.TH iverilog 1 "December 16th, 2014" "" "Version %M.%m.%n %E"
+.TH iverilog 1 "Aug 7th, 2015" "" "Version %M.%n%E"
 .SH NAME
 iverilog - Icarus Verilog compiler
 
@@ -30,7 +30,7 @@ different set of programs. The path given is used to locate
 \fIivlpp\fP, \fIivl\fP, code generators and the VPI modules.
 .TP 8
 .B -c\fIfile\fP -f\fIfile\fP
-These flags specifies an input file that contains a list of Verilog
+These flags specify an input file that contains a list of Verilog
 source files. This is similar to the \fIcommand file\fP of other
 Verilog simulators, in that it is a file that contains the file names
 instead of taking them on the command line. See \fBCommand Files\fP below.
@@ -292,8 +292,13 @@ after a \fB\-Wall\fP argument to suppress isolated warning types.
 
 .TP 8
 .B all
-This enables the implicit, portbind, select\-range, timescale, and
-sensitivity\-entire\-array warning categories.
+This enables the anachronisms, implicit, portbind, select\-range,
+timescale, and sensitivity\-entire\-array warning categories.
+
+.TP 8
+.B anachronisms
+This enables warnings for use of features that have been deprecated
+or removed in the selected generation of the Verilog language.
 
 .TP 8
 .B implicit
@@ -520,14 +525,14 @@ Steve Williams (steve@icarus.com)
 
 .SH SEE ALSO
 vvp(1),
-.BR "<http://www.icarus.com/eda/verilog/>"
+.BR "<http://iverilog.icarus.com/>"
 
 Tips on using, debugging, and developing the compiler can be found at
 .BR "<http://iverilog.wikia.com/>"
 
 .SH COPYRIGHT
 .nf
-Copyright \(co  2002\-2014 Stephen Williams
+Copyright \(co  2002\-2015 Stephen Williams
 
 This document can be freely redistributed according to the terms of the
 GNU General Public License version 2.0

@@ -83,7 +83,7 @@ static void show_this_item(struct vcd_info*info)
       } else {
 	    value.format = vpiBinStrVal;
 	    vpi_get_value(info->item, &value);
-	    fstWriterEmitValueChange(dump_file, info->handle, value.value.str);
+	    fstWriterEmitValueChange(dump_file, info->handle, (type != vpiNamedEvent) ? value.value.str : "1");
       }
 }
 
@@ -623,18 +623,18 @@ static void scan_item(unsigned depth, vpiHandle item, int skip)
 
 		  new_ident = fstWriterCreateVar(dump_file, type,
 		                                 dir, size, buf,
-		                                 (fstHandle)(long)ident);
+		                                 (fstHandle)(intptr_t)ident);
 		  free(buf);
 	    } else {
 		  new_ident = fstWriterCreateVar(dump_file, type,
 		                                 dir, size, escname,
-		                                 (fstHandle)(long)ident);
+		                                 (fstHandle)(intptr_t)ident);
 	    }
 	    free(escname);
 
 	    if (!ident) {
 		  if (nexus_id) set_nexus_ident(nexus_id,
-		                                (const char *)(long)new_ident);
+		                                (const char *)(intptr_t)new_ident);
 
 		    /* Add a callback for the signal. */
 		  info = malloc(sizeof(*info));

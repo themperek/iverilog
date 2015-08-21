@@ -1044,7 +1044,11 @@ data_type /* IEEE1800-2005: A.2.2.1 */
 	$$ = tmp;
       }
   | struct_data_type
-      { $$ = $1; }
+      { if (!$1->packed_flag) {
+	      yyerror(@1, "sorry: Unpacked structs not supported.");
+	}
+	$$ = $1;
+      }
   | enum_data_type
       { $$ = $1; }
   | atom2_type signed_unsigned_opt
@@ -1062,7 +1066,7 @@ data_type /* IEEE1800-2005: A.2.2.1 */
   | K_time
       { list<pform_range_t>*pd = make_range_from_width(64);
 	vector_type_t*tmp = new vector_type_t(IVL_VT_LOGIC, false, pd);
-	tmp->reg_flag = true;
+	tmp->reg_flag = !gn_system_verilog();
 	$$ = tmp;
       }
   | TYPE_IDENTIFIER dimensions_opt
@@ -1792,7 +1796,7 @@ property_expr /* IEEE1800-2012 A.2.10 */
 
   /* The property_qualifier rule is as literally described in the LRM,
      but the use is usually as { property_qualifier }, which is
-     implemented bt the property_qualifier_opt rule below. */
+     implemented by the property_qualifier_opt rule below. */
 
 property_qualifier /* IEEE1800-2005 A.1.8 */
   : class_item_qualifier
@@ -2097,7 +2101,7 @@ tf_port_item /* IEEE1800-2005: A.2.7 */
 	} else {
 		// Otherwise, the decorations for this identifier
 		// indicate the type. Save the type for any right
-		// context thta may come later.
+		// context that may come later.
 	      port_declaration_context.port_type = use_port_type;
 	      if ($2 == 0) {
 		    $2 = new vector_type_t(IVL_VT_LOGIC, false, 0);
@@ -2115,7 +2119,7 @@ tf_port_item /* IEEE1800-2005: A.2.7 */
 	      assert(tmp->size()==1);
 	      tmp->front().defe = $5;
 	}
-     }
+      }
 
   /* Rules to match error cases... */
 
@@ -2129,8 +2133,14 @@ tf_port_item /* IEEE1800-2005: A.2.7 */
   /* This rule matches the [ = <expression> ] part of the tf_port_item rules. */
 
 tf_port_item_expr_opt
-  : '=' expression { $$ = $2; }
-  |                { $$ = 0; }
+  : '=' expression
+      { if (! gn_system_verilog()) {
+	      yyerror(@1, "error: Task/function default arguments require "
+	                  "SystemVerilog.");
+	}
+	$$ = $2;
+      }
+  |   { $$ = 0; }
   ;
 
 tf_port_list /* IEEE1800-2005: A.2.7 */
@@ -3335,6 +3345,22 @@ expr_primary
 	FILE_NAME(tmp, @1);
 	$$ = tmp;
       }
+  | TIME_LITERAL
+      { int unit;
+
+          based_size = 0;
+          $$         = 0;
+          if ($1 == 0 || !get_time_unit($1, unit))
+              yyerror(@1, "internal error: delay.");
+          else {
+              double p = pow(10.0, (double)(unit - pform_get_timeunit()));
+              double time = atof($1) * p;
+
+              verireal *v = new verireal(time);
+              $$ = new PEFNumber(v);
+              FILE_NAME($$, @1);
+          }
+      }
   | SYSTEM_IDENTIFIER
       { perm_string tn = lex_strings.make($1);
 	PECallFunction*tmp = new PECallFunction(tn);
@@ -3369,7 +3395,7 @@ expr_primary
 
   /* An identifier followed by an expression list in parentheses is a
      function call. If a system identifier, then a system function
-     call. It can also be a call to a class method (functino). */
+     call. It can also be a call to a class method (function). */
 
   | hierarchy_identifier '(' expression_list_with_nuls ')'
       { list<PExpr*>*expr_list = $3;
@@ -4143,6 +4169,9 @@ port_declaration
 		    use_type = NetNet::IMPLICIT_REG;
 	      } else if (dynamic_cast<struct_type_t*> ($4)) {
 		    use_type = NetNet::IMPLICIT_REG;
+	      } else if (enum_type_t*etype = dynamic_cast<enum_type_t*> ($4)) {
+		    if(etype->base_type == IVL_VT_LOGIC)
+			use_type = NetNet::IMPLICIT_REG;
 	      }
 	}
 	ptmp = pform_module_port_reference(name, @2.text, @2.first_line);
@@ -4529,8 +4558,8 @@ module_item
 	}
 	pform_makewire(@2, $4, str_strength, $5, $2, data_type);
 	if ($1) {
-	      yyerror(@2, "sorry: Attributes not supported "
-		      "on net declaration assignments.");
+	      yywarn(@2, "Attributes are not supported on net declaration "
+		     "assignments and will be discarded.");
 	      delete $1;
 	}
       }
@@ -4546,8 +4575,8 @@ module_item
 	}
 	pform_makewire(@2, 0, $4, $5, $2, data_type);
 	if ($1) {
-	      yyerror(@2, "sorry: Attributes not supported "
-		      "on net declaration assignments.");
+	      yywarn(@2, "Attributes are not supported on net declaration "
+		     "assignments and will be discarded.");
 	      delete $1;
 	}
       }
@@ -4556,8 +4585,8 @@ module_item
       { real_type_t*data_type = new real_type_t(real_type_t::REAL);
         pform_makewire(@2, 0, str_strength, $3, NetNet::WIRE, data_type);
 	if ($1) {
-	      yyerror(@2, "sorry: Attributes not supported "
-		      "on net declaration assignments.");
+	      yywarn(@2, "Attributes are not supported on net declaration "
+		     "assignments and will be discarded.");
 	      delete $1;
 	}
       }
@@ -4753,7 +4782,7 @@ module_item
      generate/endgenerate regions do not nest. Generate schemes nest,
      but generate regions do not. */
 
-  | K_generate module_item_list_opt K_endgenerate
+  | K_generate generate_item_list_opt K_endgenerate
      { // Test for bad nesting. I understand it, but it is illegal.
        if (pform_parent_generate()) {
 	     cerr << @1 << ": error: Generate/endgenerate regions cannot nest." << endl;
@@ -4789,25 +4818,6 @@ module_item
     generate_case_items
     K_endcase
       { pform_endgenerate(); }
-
-  /* Handle some anachronistic syntax cases. */
-  | K_generate K_begin module_item_list_opt K_end K_endgenerate
-      { /* Detect and warn about anachronistic begin/end use */
-	if (generation_flag > GN_VER2001 && warn_anachronisms) {
-	      warn_count += 1;
-	      cerr << @2 << ": warning: Anachronistic use of begin/end to surround generate schemes." << endl;
-	}
-      }
-  | K_generate K_begin ':' IDENTIFIER {
-	pform_start_generate_nblock(@2, $4);
-      } module_item_list_opt K_end K_endgenerate
-      { /* Detect and warn about anachronistic named begin/end use */
-	if (generation_flag > GN_VER2001 && warn_anachronisms) {
-	      warn_count += 1;
-	      cerr << @2 << ": warning: Anachronistic use of named begin/end to surround generate schemes." << endl;
-	}
-	pform_endgenerate();
-      }
 
   | modport_declaration
 
@@ -4893,6 +4903,16 @@ module_item
 		{ pform_set_timeprecision($2, true, true); }
 	;
 
+module_item_list
+  : module_item_list module_item
+  | module_item
+  ;
+
+module_item_list_opt
+  : module_item_list
+  |
+  ;
+
 generate_if : K_if '(' expression ')' { pform_start_generate_if(@1, $3); } ;
 
 generate_case_items
@@ -4907,15 +4927,37 @@ generate_case_item
       { pform_endgenerate(); }
   ;
 
-module_item_list
-	: module_item_list module_item
-	| module_item
-	;
+generate_item
+  : module_item
+  /* Handle some anachronistic syntax cases. */
+  | K_begin generate_item_list_opt K_end
+      { /* Detect and warn about anachronistic begin/end use */
+	if (generation_flag > GN_VER2001 && warn_anachronisms) {
+	      warn_count += 1;
+	      cerr << @1 << ": warning: Anachronistic use of begin/end to surround generate schemes." << endl;
+	}
+      }
+  | K_begin ':' IDENTIFIER {
+	pform_start_generate_nblock(@1, $3);
+      } generate_item_list_opt K_end
+      { /* Detect and warn about anachronistic named begin/end use */
+	if (generation_flag > GN_VER2001 && warn_anachronisms) {
+	      warn_count += 1;
+	      cerr << @1 << ": warning: Anachronistic use of named begin/end to surround generate schemes." << endl;
+	}
+	pform_endgenerate();
+      }
+  ;
 
-module_item_list_opt
-	: module_item_list
-	|
-	;
+generate_item_list
+  : generate_item_list generate_item
+  | generate_item
+  ;
+
+generate_item_list_opt
+  : generate_item_list
+  |
+  ;
 
   /* A generate block is the thing within a generate scheme. It may be
      a single module item, an anonymous block of module items, or a
@@ -4924,24 +4966,24 @@ module_item_list_opt
      only need to take note here of the scope name, if any. */
 
 generate_block
-        : module_item
-        | K_begin module_item_list_opt K_end
-        | K_begin ':' IDENTIFIER module_item_list_opt K_end endlabel_opt
-             { pform_generate_block_name($3);
-               if ($6) {
-                     if (strcmp($3,$6) != 0) {
-                           yyerror(@6, "error: End label doesn't match "
-                                       "begin name");
-                     }
-                     if (! gn_system_verilog()) {
-                           yyerror(@6, "error: Begin end labels require "
-                                       "SystemVerilog.");
-                     }
-                     delete[]$6;
-               }
-               delete[]$3;
-             }
-        ;
+  : module_item
+  | K_begin generate_item_list_opt K_end
+  | K_begin ':' IDENTIFIER generate_item_list_opt K_end endlabel_opt
+      { pform_generate_block_name($3);
+	if ($6) {
+	      if (strcmp($3,$6) != 0) {
+		    yyerror(@6, "error: End label doesn't match "
+				"begin name");
+	      }
+	      if (! gn_system_verilog()) {
+		    yyerror(@6, "error: Begin end labels require "
+				"SystemVerilog.");
+	      }
+	      delete[]$6;
+	}
+	delete[]$3;
+      }
+  ;
 
 generate_block_opt : generate_block | ';' ;
 
@@ -6095,7 +6137,7 @@ statement_item /* This is roughly statement_item in the LRM */
 		{ yyerror(@1, "error: Malformed conditional expression.");
 		  $$ = $5;
 		}
-  /* SytemVerilog adds the compressed_statement */
+  /* SystemVerilog adds the compressed_statement */
 
   | compressed_statement ';'
       { $$ = $1; }

@@ -19,6 +19,9 @@
 
 # include  "sequential.h"
 # include  "expression.h"
+# include  "scope.h"
+# include  "library.h"
+# include  "subprogram.h"
 
 int SequentialStmt::elaborate(Entity*, ScopeBase*)
 {
@@ -148,16 +151,39 @@ int SignalSeqAssignment::elaborate(Entity*ent, ScopeBase*scope)
 	// Elaborate the r-value expressions.
       for (list<Expression*>::iterator cur = waveform_.begin()
 		 ; cur != waveform_.end() ; ++cur) {
-
 	    errors += (*cur)->elaborate_expr(ent, scope, lval_type);
       }
 
       return errors;
 }
 
-int ProcedureCall::elaborate(Entity*, ScopeBase*)
+int ProcedureCall::elaborate(Entity*ent, ScopeBase*scope)
 {
-      return 0;
+      int errors = 0;
+
+      def_ = scope->find_subprogram(name_);
+
+      if(!def_)
+            def_ = library_find_subprogram(name_);
+
+      assert(def_);
+
+	// Elaborate arguments
+      size_t idx = 0;
+      if(param_list_) {
+	    for(list<named_expr_t*>::iterator cur = param_list_->begin()
+		 ; cur != param_list_->end() ; ++cur) {
+                const VType*tmp = (*cur)->expr()->probe_type(ent, scope);
+                const VType*param_type = def_ ? def_->peek_param_type(idx) : NULL;
+
+                if(!tmp && param_type)
+                    tmp = param_type;
+
+                errors += (*cur)->expr()->elaborate_expr(ent, scope, tmp);
+            }
+      }
+
+      return errors;
 }
 
 int VariableSeqAssignment::elaborate(Entity*ent, ScopeBase*scope)
@@ -191,4 +217,37 @@ int WhileLoopStatement::elaborate(Entity*, ScopeBase*)
 int BasicLoopStatement::elaborate(Entity*, ScopeBase*)
 {
     return 0;
+}
+
+int AssertStmt::elaborate(Entity*ent, ScopeBase*scope)
+{
+    return cond_->elaborate_expr(ent, scope, 0);
+}
+
+int WaitForStmt::elaborate(Entity*ent, ScopeBase*scope)
+{
+    return delay_->elaborate_expr(ent, scope, 0);
+}
+
+int WaitStmt::elaborate(Entity*ent, ScopeBase*scope)
+{
+    if(type_ == UNTIL) {
+        struct fill_sens_list_t : public ExprVisitor {
+            fill_sens_list_t(set<ExpName*>& sig_list)
+            : sig_list_(sig_list) {};
+
+            void operator() (Expression*s) {
+                if(ExpName*name = dynamic_cast<ExpName*>(s))
+                    sig_list_.insert(name);
+            }
+
+            private:
+                set<ExpName*>& sig_list_;
+        } fill_sens_list(sens_list_);
+
+        // Fill the sensitivity list
+        expr_->visit(fill_sens_list);
+    }
+
+    return expr_->elaborate_expr(ent, scope, 0);
 }

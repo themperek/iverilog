@@ -1335,7 +1335,7 @@ unsigned PECallFunction::test_width_method_(Design*des, NetScope*scope,
       if (net == 0)
 	    return 0;
 
-	// Look fonr built in string attributes.
+	// Look for built in string attributes.
       if (net->data_type()==IVL_VT_STRING) {
 
 	    if (method_name == "len") {
@@ -1418,7 +1418,7 @@ NetExpr*PECallFunction::cast_to_width_(NetExpr*expr, unsigned wid) const
            const. This is a more efficient result. */
       if (NetEConst*tmp = dynamic_cast<NetEConst*>(expr)) {
             tmp->cast_signed(signed_flag_);
-            if (wid > tmp->expr_width()) {
+            if (wid != tmp->expr_width()) {
                   tmp = new NetEConst(verinum(tmp->value(), wid));
                   tmp->set_line(*this);
                   delete expr;
@@ -1597,7 +1597,7 @@ NetExpr* PECallFunction::elaborate_sfunc_(Design*des, NetScope*scope,
 
       if (missing_parms > 0) {
 	    cerr << get_fileline() << ": error: The function " << name
-		 << " has been called with empty parameters." << endl;
+		 << " has been called with missing/empty parameters." << endl;
 	    cerr << get_fileline() << ":      : Verilog doesn't allow "
 		 << "passing empty parameters to functions." << endl;
 	    des->errors += 1;
@@ -2313,6 +2313,21 @@ unsigned PECallFunction::elaborate_arguments_(Design*des, NetScope*scope,
       const unsigned parm_count = parms.size() - parm_off;
       const unsigned actual_count = parms_.size();
 
+	/* The parser can't distinguish between a function call with
+	   no arguments and a function call with one empty argument,
+	   and always supplies one empty argument. Handle the no
+	   argument case here. */
+      if ((parm_count == 0) && (actual_count == 1) && (parms_[0] == 0))
+	    return 0;
+
+      if (actual_count > parm_count) {
+	    cerr << get_fileline() << ": error: "
+		 << "Too many arguments (" << actual_count
+		 << ", expecting " << parm_count << ")"
+		 << " in call to function." << endl;
+	    des->errors += 1;
+      }
+
       for (unsigned idx = 0 ; idx < parm_count ; idx += 1) {
 	    unsigned pidx = idx + parm_off;
 	    PExpr*tmp = (idx < actual_count) ? parms_[idx] : 0;
@@ -2343,7 +2358,7 @@ unsigned PECallFunction::elaborate_arguments_(Design*des, NetScope*scope,
 	    } else if (def->port_defe(pidx)) {
 		  if (! gn_system_verilog()) {
 			cerr << get_fileline() << ": internal error: "
-			     <<"Found (and using) default function argument "
+			     << "Found (and using) default function argument "
 			     << "requires SystemVerilog." << endl;
 			des->errors += 1;
 		  }
@@ -2357,7 +2372,7 @@ unsigned PECallFunction::elaborate_arguments_(Design*des, NetScope*scope,
 
       if (missing_parms > 0) {
 	    cerr << get_fileline() << ": error: The function " << path_
-		 << " has been called with empty parameters." << endl;
+		 << " has been called with missing/empty parameters." << endl;
 	    cerr << get_fileline() << ":      : Verilog doesn't allow "
 		 << "passing empty parameters to functions." << endl;
 	    parm_errors += 1;
@@ -2827,9 +2842,9 @@ NetExpr* PEConcat::elaborate_expr(Design*des, NetScope*scope,
 	    concat->set(idx, parms[off+idx]);
       }
 
-      if (wid_sum == 0 && concat_depth < 2) {
-	    cerr << get_fileline() << ": error: Concatenation may not "
-	         << "have zero width in this context." << endl;
+      if (wid_sum == 0) {
+	    cerr << get_fileline() << ": error: Concatenation/replication "
+	         << "may not have zero width in this context." << endl;
 	    des->errors += 1;
 	    concat_depth -= 1;
 	    delete concat;
@@ -2924,7 +2939,7 @@ bool PEIdent::calculate_bits_(Design*des, NetScope*scope,
       NetEConst*msb_c = dynamic_cast<NetEConst*>(msb_ex);
       if (msb_c == 0) {
 	    cerr << index_tail.msb->get_fileline() << ": error: "
-		  "Bit select expressionsmust be constant."
+		  "Bit select expressions must be constant."
 		 << endl;
 	    cerr << index_tail.msb->get_fileline() << ":      : "
                   "This msb expression violates the rule: "
@@ -3490,7 +3505,7 @@ NetExpr* PEIdent::elaborate_expr(Design*des, NetScope*scope,
       indices_flags idx_flags;
       indices_to_expressions(des, scope, this,
 			     use_comp.index, net->unpacked_dimensions(),
-			     need_const, net->unpacked_count(),
+			     need_const,
 			     idx_flags,
 			     unpacked_indices,
 			     unpacked_indices_const);
@@ -3843,7 +3858,7 @@ NetExpr* PEIdent::elaborate_expr(Design*des, NetScope*scope,
       }
 
 	// Maybe this is a method attached to an enumeration name? If
-	// this is system verilog, then test to see if the name is
+	// this is SystemVerilog, then test to see if the name is
 	// really a method attached to an object.
       if (gn_system_verilog() && found_in==0 && path_.size() >= 2) {
 	    pform_name_t use_path = path_;
@@ -4563,7 +4578,7 @@ NetExpr* PEIdent::elaborate_expr_net_word_(Design*des, NetScope*scope,
       indices_flags idx_flags;
       indices_to_expressions(des, scope, this,
 			     name_tail.index, net->unpacked_dimensions(),
-			     need_const, net->unpacked_count(),
+			     need_const,
 			     idx_flags,
 			     unpacked_indices,
 			     unpacked_indices_const);

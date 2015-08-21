@@ -30,7 +30,7 @@
 
 static const char*version_string =
 "Icarus Verilog VLOG95 Code Generator " VERSION " (" VERSION_TAG ")\n\n"
-"Copyright (C) 2010-2013 Cary R. (cygcary@yahoo.com)\n\n"
+"Copyright (C) 2010-2015 Cary R. (cygcary@yahoo.com)\n\n"
 "  This program is free software; you can redistribute it and/or modify\n"
 "  it under the terms of the GNU General Public License as published by\n"
 "  the Free Software Foundation; either version 2 of the License, or\n"
@@ -208,7 +208,7 @@ int target_design(ivl_design_t des)
 	    assert(indent == 0);
 	    fprintf(vlog_out, "endmodule /* ivl_root_scope */\n");
       }
-	/* Emit the rest of the scope objets. */
+	/* Emit the rest of the scope objects. */
       for (idx = 0; idx < nroots; idx += 1) emit_scope(roots[idx], 0);
 
       free_emitted_scope_list();

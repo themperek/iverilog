@@ -1,7 +1,7 @@
 #ifndef IVL_netlist_H
 #define IVL_netlist_H
 /*
- * Copyright (c) 1998-2014 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 1998-2015 Stephen Williams (steve@icarus.com)
  * Copyright CERN 2013 / Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
@@ -90,6 +90,12 @@ class netvector_t;
 struct target;
 struct functor_t;
 
+#if defined(__cplusplus) && defined(_MSC_VER)
+# define ENUM_UNSIGNED_INT : unsigned int
+#else
+# define ENUM_UNSIGNED_INT
+#endif
+
 ostream& operator << (ostream&o, ivl_variable_type_t val);
 
 extern void join_island(NetPins*obj);
@@ -102,8 +108,7 @@ class Link {
       friend class NexusSet;
 
     public:
-      enum DIR { PASSIVE, INPUT, OUTPUT };
-
+      enum DIR ENUM_UNSIGNED_INT { PASSIVE, INPUT, OUTPUT };
     private: // Only NetPins can create/delete Link objects
       Link();
       ~Link();
@@ -619,7 +624,7 @@ class NetDelaySrc  : public NetObj {
 class PortType
 {
 public:
-    enum Enum { NOT_A_PORT, PIMPLICIT, PINPUT, POUTPUT, PINOUT, PREF };
+	enum Enum ENUM_UNSIGNED_INT { NOT_A_PORT, PIMPLICIT, PINPUT, POUTPUT, PINOUT, PREF };
 
     /*
      * Merge Port types (used to construct a sane combined port-type
@@ -647,7 +652,7 @@ struct PortInfo
 class NetNet  : public NetObj, public PortType {
 
     public:
-      enum Type { NONE, IMPLICIT, IMPLICIT_REG, INTEGER, WIRE, TRI, TRI1,
+      enum Type ENUM_UNSIGNED_INT { NONE, IMPLICIT, IMPLICIT_REG, INTEGER, WIRE, TRI, TRI1,
 		  SUPPLY0, SUPPLY1, WAND, TRIAND, TRI0, WOR, TRIOR, REG,
 		  UNRESOLVED_WIRE };
 
@@ -765,7 +770,7 @@ class NetNet  : public NetObj, public PortType {
       unsigned peek_eref() const;
 
 	// Assignment statements count their lrefs here. And by
-	// asignment statements, we mean BEHAVIORAL assignments.
+	// assignment statements, we mean BEHAVIORAL assignments.
       void incr_lref();
       void decr_lref();
       unsigned peek_lref() const { return lref_count_; }
@@ -1622,9 +1627,10 @@ class NetModulo  : public NetNode {
 class NetFF  : public NetNode {
 
     public:
-      NetFF(NetScope*s, perm_string n, unsigned vector_width);
+      NetFF(NetScope*s, perm_string n, bool negedge, unsigned vector_width);
       ~NetFF();
 
+      bool is_negedge() const;
       unsigned width() const;
 
       Link& pin_Clock();
@@ -1656,6 +1662,7 @@ class NetFF  : public NetNode {
       virtual void functor_node(Design*des, functor_t*fun);
 
     private:
+      bool negedge_;
       unsigned width_;
       verinum aset_value_;
       verinum sset_value_;
@@ -2216,7 +2223,7 @@ class NetPartSelect  : public NetNode {
  *
  *      wire [7:0] foo = NetSubstitute(bar, bat, off);
  *
- * meaus that bar is a vector the same width as foo, bat is a narrower
+ * means that bar is a vector the same width as foo, bat is a narrower
  * vector. The off is a constant offset into the bar vector. This
  * looks something like this:
  *
@@ -2287,7 +2294,7 @@ class NetBUFZ  : public NetNode {
  *
  *     0   -- Output (always returns 0 or 1)
  *     1   -- Input
- *     2   -- Input (windcard input for EQX and EQZ variants)
+ *     2   -- Input (wildcard input for EQX and EQZ variants)
  */
 class NetCaseCmp  : public NetNode {
 
@@ -2618,8 +2625,10 @@ class NetProc : public virtual LineInfo {
 	// picked off by e.g. condit statements as set/reset inputs to
 	// the flipflop being generated.
       virtual bool synth_sync(Design*des, NetScope*scope,
+			      bool&ff_negedge,
 			      NetNet*ff_clock, NetBus&ff_ce,
 			      NetBus&ff_aclr,  NetBus&ff_aset,
+			      vector<verinum>&ff_aset_value,
 			      NexusSet&nex_map, NetBus&nex_out,
 			      const std::vector<NetEvProbe*>&events);
 
@@ -2899,8 +2908,10 @@ class NetBlock  : public NetProc {
 		       NetBus&accumulated_nex_out);
 
       bool synth_sync(Design*des, NetScope*scope,
+		      bool&ff_negedge,
 		      NetNet*ff_clk, NetBus&ff_ce,
 		      NetBus&ff_aclr,NetBus&ff_aset,
+		      vector<verinum>&ff_aset_value,
 		      NexusSet&nex_map, NetBus&nex_out,
 		      const std::vector<NetEvProbe*>&events);
 
@@ -3040,8 +3051,10 @@ class NetCondit  : public NetProc {
 		       NetBus&accumulated_nex_out);
 
       bool synth_sync(Design*des, NetScope*scope,
+		      bool&ff_negedge,
 		      NetNet*ff_clk, NetBus&ff_ce,
 		      NetBus&ff_aclr,NetBus&ff_aset,
+		      vector<verinum>&ff_aset_value,
 		      NexusSet&nex_map, NetBus&nex_out,
 		      const std::vector<NetEvProbe*>&events);
 
@@ -3317,8 +3330,10 @@ class NetEvWait  : public NetProc {
 			       NetBus&accumulated_nex_out);
 
       virtual bool synth_sync(Design*des, NetScope*scope,
+			      bool&ff_negedge,
 			      NetNet*ff_clk, NetBus&ff_ce,
 			      NetBus&ff_aclr,NetBus&ff_aset,
+			      vector<verinum>&ff_aset_value,
 			      NexusSet&nex_map, NetBus&nex_out,
 			      const std::vector<NetEvProbe*>&events);
 
@@ -4995,4 +5010,5 @@ inline unsigned Link::get_pin() const
 	    return pin_;
 }
 
+#undef ENUM_UNSIGNED_INT
 #endif /* IVL_netlist_H */

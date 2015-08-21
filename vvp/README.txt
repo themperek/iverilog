@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2001-2015 Stephen Williams (steve@icarus.com)
  *
  */
 
@@ -192,18 +192,24 @@ The Verilog language itself does not have a DFF primitive, but post
 synthesis readily creates DFF devices that are best simulated with a
 common device. Thus, there is the DFF statement to create DFF devices:
 
-        <label> .dff <d>, <clk>, <ce>;
-        <label> .dff/aclr <d>, <clk>, <ce>, <async-input>;
-        <label> .dff/aset <d>, <clk>, <ce>, <async-input>;
+        <label> .dff/p <width> <d>, <clk>, <ce>;
+        <label> .dff/n <width> <d>, <clk>, <ce>;
+        <label> .dff/p/aclr <width> <d>, <clk>, <ce>, <async-input>;
+        <label> .dff/n/aclr <width> <d>, <clk>, <ce>, <async-input>;
+        <label> .dff/p/aset <width> <d>, <clk>, <ce>, <async-input>[, <set-value>];
+        <label> .dff/n/aset <width> <d>, <clk>, <ce>, <async-input>[, <set-value>];
 
-The generated functor is generally synchronous on the <clk> rising
-edge of <clk>, with the <ce> enable active high. The <clk> and <ce>
-are single bit vectors (or scalars) on ports 1 and 2. Port-0 is any
-type of datum at all. The device will transfer the input to the output
-when it is loaded by a clock. The <async-input> is a special
-asynchronous input that on the rising edge causes the device to
-clear/set, and force the output to propagate. Thus, they implement DFF
-with asynchronous clr or set.
+The /p variants simulate positive-edge triggered flip-flops and the
+/n variants simulate negative-edge triggered flip-flops. The generated
+functor is generally synchronous on the specified edge of <clk>, with
+the <ce> enable active high. The <clk> and <ce> are single bit vectors
+(or scalars) on ports 1 and 2. Port-0 is any type of datum at all. The
+device will transfer the input to the output when it is loaded by a
+clock. The <async-input> is a special asynchronous input that on the
+rising edge causes the device to clear/set, forces the output to
+propagate, and disables the clock until the aynchronous input is
+deasserted. Thus, they implement DFF with asynchronous clr or set.
+
 
 UDP STATEMENTS:
 
@@ -218,8 +224,8 @@ only.
 
 The function of a UDP is defined via a table.  The rows of the table
 are strings which describe input states or edges, and the new output
-state.	Combinatorial UDPs require one character for each input, and
-one character at the end for the output state.	Sequential UDPs need
+state.  Combinatorial UDPs require one character for each input, and
+one character at the end for the output state.  Sequential UDPs need
 an additional char for the current state, which is the first char of
 the row.
 
@@ -227,7 +233,7 @@ Any input transition or the new state must match at most one row (or
 all matches must provide the same output state).  If no row matches,
 the output becomes 1'bx.
 
-The output state can be specified as "0", "1", or "x".	Sequential
+The output state can be specified as "0", "1", or "x".  Sequential
 UDPs may also have "-": no change.
 
 An input or current output state can be
@@ -256,7 +262,7 @@ A combinatorial UDP is defined like this:
 	<type> .udp/comb "<name>", <number>, "<row0>", "<row1>", ... ;
 
 <type> is a label that identifies the UDP.  <number> is the number of
-inputs.	 "<name>" is there for public identification.  Sequential UDPs
+inputs.  "<name>" is there for public identification.  Sequential UDPs
 need an additional initialization value:
 
 	<type> .udp/sequ "<name>", <number>, <init>, "<row0>", "<row1>", ... ;
@@ -535,8 +541,8 @@ implicit from these numbers. The <symbol> is then the input source.
 
 SUBSTITUTION STATEMENTS:
 
-The substition statement doesn't have a direct analog in Verilog, it
-only turns up in synthesis. It is a sorthand for forms like this:
+The substitution statement doesn't have a direct analog in Verilog, it
+only turns up in synthesis. It is a shorthand for forms like this:
 
    foo = <a>;
    foo[n] = <s>;

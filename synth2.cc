@@ -34,8 +34,10 @@ bool NetProc::synth_async(Design*, NetScope*, NexusSet&, NetBus&, NetBus&)
 }
 
 bool NetProc::synth_sync(Design*des, NetScope*scope,
+			 bool& /* ff_negedge */,
 			 NetNet* /* ff_clk */, NetBus& /* ff_ce */,
 			 NetBus& /* ff_aclr*/, NetBus& /* ff_aset*/,
+			 vector<verinum>& /*ff_aset_value*/,
 			 NexusSet&nex_map, NetBus&nex_out,
 			 const vector<NetEvProbe*>&events)
 {
@@ -70,6 +72,34 @@ bool NetAssignBase::synth_async(Design*des, NetScope*scope,
 				NexusSet&nex_map, NetBus&nex_out,
 				NetBus&accumulated_nex_out)
 {
+	/* If the lval is a concatenation, synthesise each part
+	   separately. */
+      if (lval_->more ) {
+	      /* Temporarily set the lval_ and rval_ fields for each
+		 part in turn and recurse. Restore them when done. */
+	    NetAssign_*full_lval = lval_;
+	    NetExpr*full_rval = rval_;
+	    unsigned offset = 0;
+	    bool flag = true;
+	    while (lval_) {
+		  unsigned width = lval_->lwidth();
+		  NetEConst*base = new NetEConst(verinum(offset));
+		  base->set_line(*this);
+		  rval_ = new NetESelect(full_rval->dup_expr(), base, width);
+		  rval_->set_line(*this);
+		  eval_expr(rval_, width);
+		  NetAssign_*more = lval_->more;
+		  lval_->more = 0;
+		  if (!synth_async(des, scope, nex_map, nex_out, accumulated_nex_out))
+			flag = false;
+		  lval_ = lval_->more = more;
+		  offset += width;
+	    }
+	    lval_ = full_lval;
+	    rval_ = full_rval;
+	    return flag;
+      }
+
       NetNet*rsig = rval_->synthesize(des, scope, rval_);
       assert(rsig);
 
@@ -98,34 +128,6 @@ bool NetAssignBase::synth_async(Design*des, NetScope*scope,
 	    cerr << get_fileline() << ": NetAssignBase::synth_async: "
 		 << "nex_map.size()==" << nex_map.size()
 		 << ", nex_out.pin_count()==" << nex_out.pin_count() << endl;
-      }
-
-      if (lval_->more ) {
-	    unsigned base = 0, width = 1;
-	    unsigned i = 0;
-	    NetAssign_ *lval = lval_;
-	    while (lval) {
-		  NetNet *llsig = lval->sig();
-		  width = lval->lwidth();
-		  ivl_variable_type_t tmp_data_type = llsig->data_type();
-		  netvector_t *tmp_type = new netvector_t(tmp_data_type, llsig->vector_width()-1, 0);
-
-		  NetNet *tmp = new NetNet(scope, scope->local_symbol(),
-		  NetNet::WIRE, NetNet::not_an_array, tmp_type);
-		  tmp->local_flag(true);
-		  NetPartSelect *ps = new NetPartSelect(rsig, base, width, NetPartSelect::VP);
-		  ps->set_line(*this);
-		  des->add_node(ps);
-
-		  connect(tmp->pin(0), ps->pin(0));
-		  connect(nex_out.pin(i), tmp->pin(0));
-
-		  base += width;
-		  i++;
-		  lval->turn_sig_to_wire_on_release();
-		  lval = lval->more;
-	    }
-	    return true;
       }
 
 	// Here we note if the l-value is actually a bit/part
@@ -808,8 +810,8 @@ bool NetCase::synth_async_casez_(Design*des, NetScope*scope,
 						   sel_width, case_kind);
 	    des->add_node(condit_dev);
 	    condit_dev->set_line(*this);
-	      // Note that the expression that may have windcards must
-	      // go in the pin(2) input. This is the definiton of the
+	      // Note that the expression that may have wildcards must
+	      // go in the pin(2) input. This is the definition of the
 	      // NetCaseCmp statement.
 	    connect(condit_dev->pin(1), esig->pin(0));
 	    connect(condit_dev->pin(2), guard->pin(0));
@@ -1382,8 +1384,10 @@ bool NetProcTop::synth_async(Design*des)
  * the statements may each infer different reset and enable signals.
  */
 bool NetBlock::synth_sync(Design*des, NetScope*scope,
+			  bool&ff_negedge,
 			  NetNet*ff_clk, NetBus&ff_ce,
 			  NetBus&ff_aclr,NetBus&ff_aset,
+			  vector<verinum>&ff_aset_value,
 			  NexusSet&nex_map, NetBus&nex_out,
 			  const vector<NetEvProbe*>&events_in)
 {
@@ -1426,8 +1430,9 @@ bool NetBlock::synth_sync(Design*des, NetScope*scope,
 		 subset of the statement. The tmp_map is the output
 		 nexa that we expect, and the tmp_out is where we want
 		 those outputs connected. */
-	    bool ok_flag = cur->synth_sync(des, scope, ff_clk, tmp_ce,
-					   ff_aclr, ff_aset,
+	    bool ok_flag = cur->synth_sync(des, scope,
+					   ff_negedge, ff_clk, tmp_ce,
+					   ff_aclr, ff_aset, ff_aset_value,
 					   tmp_set, tmp_out, events_in);
 	    flag = flag && ok_flag;
 
@@ -1463,8 +1468,10 @@ bool NetBlock::synth_sync(Design*des, NetScope*scope,
  * expression is connected to an event, or not.
  */
 bool NetCondit::synth_sync(Design*des, NetScope*scope,
+			   bool&ff_negedge,
 			   NetNet*ff_clk, NetBus&ff_ce,
 			   NetBus&ff_aclr,NetBus&ff_aset,
+			   vector<verinum>&ff_aset_value,
 			   NexusSet&nex_map, NetBus&nex_out,
 			   const vector<NetEvProbe*>&events_in)
 {
@@ -1511,25 +1518,13 @@ bool NetCondit::synth_sync(Design*des, NetScope*scope,
 	    for (unsigned pin = 0 ; pin < tmp_out.pin_count() ; pin += 1) {
 		  Nexus*rst_nex = tmp_out.pin(pin).nexus();
 
-		  vector<bool> rst_mask = rst_nex->driven_mask();
-		  if (debug_synth2) {
-			cerr << get_fileline() << ": NetCondit::synth_sync: "
-			     << "nex_out pin=" << pin
-			     << ", rst_mask.size()==" << rst_mask.size()
-			     << ", rst_nex->vector_width()=" << rst_nex->vector_width()
-			     << endl;
-		  }
-
-		  for (size_t bit = 0 ; bit < rst_mask.size() ; bit += 1) {
-			if (rst_mask[bit]==false) {
-			      cerr << get_fileline() << ": sorry: "
-				   << "Asynchronous LOAD not implemented." << endl;
-			      return false;
-			}
+		  if (! rst_nex->drivers_constant()) {
+		        cerr << get_fileline() << ": sorry: "
+			     << "Asynchronous LOAD not implemented." << endl;
+		        return false;
 		  }
 
 		  verinum rst_drv = rst_nex->driven_vector();
-		  ivl_assert(*this, rst_drv.len()==rst_mask.size());
 
 		  verinum zero (verinum::V0, rst_drv.len());
 		  verinum ones (verinum::V1, rst_drv.len());
@@ -1541,62 +1536,20 @@ bool NetCondit::synth_sync(Design*des, NetScope*scope,
 			ivl_assert(*this, rst->pin_count()==1);
 			connect(ff_aclr.pin(pin), rst->pin(0));
 
-		  } else if (rst_drv==ones) {
+		  } else {
 			  // Don't yet support multiple asynchronous set inputs.
 			ivl_assert(*this, ! ff_aset.pin(pin).is_linked());
 
 			ivl_assert(*this, rst->pin_count()==1);
 			connect(ff_aset.pin(pin), rst->pin(0));
-
-		  } else {
-			NetConcat *set_cc = new NetConcat(scope,
-			                                  scope->local_symbol(),
-			                                  rst_nex->vector_width(),
-			                                  rst_drv.len(), true);
-			NetConcat *rst_cc = new NetConcat(scope,
-			                                  scope->local_symbol(),
-			                                  rst_nex->vector_width(),
-			                                  rst_drv.len(), true);
-			ivl_variable_type_t oosig_data_type = IVL_VT_LOGIC;
-			netvector_t *oosig_vec = new netvector_t(oosig_data_type, 0, 0);
-			NetNet *oosig[2] = {new NetNet(scope,
-			                               scope->local_symbol(),
-			                               NetNet::TRI, oosig_vec),
-			                    new NetNet(scope,
-			                               scope->local_symbol(),
-			                               NetNet::TRI, oosig_vec)};
-			set_cc->set_line(*this);
-			des->add_node(set_cc);
-			connect(set_cc->pin(0), oosig[0]->pin(0));
-			rst_cc->set_line(*this);
-			des->add_node(rst_cc);
-			connect(rst_cc->pin(0), oosig[1]->pin(0));
-			for (int i = 0; i < (int)rst_drv.len(); i += 1) {
-			// This is the output signal f const, osig.
-			      ivl_variable_type_t osig_data_type = IVL_VT_LOGIC;
-			      netvector_t*osig_vec = new netvector_t(osig_data_type, 0, 0);
-			      NetNet *osig = new NetNet(scope, scope->local_symbol(),
-				    NetNet::TRI, osig_vec);
-			      NetConst *nc = new NetConst(scope, scope->local_symbol(),
-				    verinum(verinum::V0, 1));
-			      connect(nc->pin(0), osig->pin(0));
-			      nc->set_line(*this);
-			      des->add_node(nc);
-			      if (rst_drv[i] == verinum::V1) {
-				    connect(set_cc->pin(i+1), rst->pin(0));
-				    connect(rst_cc->pin(i+1), nc->pin(0));
-			      } else {
-				    connect(set_cc->pin(i+1), nc->pin(0));
-				    connect(rst_cc->pin(i+1), rst->pin(0));
-			      }
-			}
-			connect(ff_aset.pin(pin), set_cc->pin(0));
-			connect(ff_aclr.pin(pin), rst_cc->pin(0));
+			if (rst_drv!=ones)
+			      ff_aset_value[pin] = rst_drv;
 		  }
 	    }
 
-	    return else_->synth_sync(des, scope, ff_clk, ff_ce,
-				     ff_aclr, ff_aset,
+	    return else_->synth_sync(des, scope,
+				     ff_negedge, ff_clk, ff_ce,
+				     ff_aclr, ff_aset, ff_aset_value,
 				     nex_map, nex_out, vector<NetEvProbe*>(0));
       }
 
@@ -1751,14 +1704,19 @@ bool NetCondit::synth_sync(Design*des, NetScope*scope,
 	    }
       }
 
-      bool flag = if_->synth_sync(des, scope, ff_clk, ff_ce, ff_aclr, ff_aset, nex_map, nex_out, events_in);
+      bool flag = if_->synth_sync(des, scope,
+				  ff_negedge, ff_clk, ff_ce,
+				  ff_aclr, ff_aset, ff_aset_value,
+				  nex_map, nex_out, events_in);
 
       return flag;
 }
 
 bool NetEvWait::synth_sync(Design*des, NetScope*scope,
+			   bool&ff_negedge,
 			   NetNet*ff_clk, NetBus&ff_ce,
 			   NetBus&ff_aclr,NetBus&ff_aset,
+			   vector<verinum>&ff_aset_value,
 			   NexusSet&nex_map, NetBus&nex_out,
 			   const vector<NetEvProbe*>&events_in)
 {
@@ -1828,8 +1786,7 @@ bool NetEvWait::synth_sync(Design*des, NetScope*scope,
 
       connect(ff_clk->pin(0), pclk->pin(0));
       if (pclk->edge() == NetEvProbe::NEGEDGE) {
-	    perm_string polarity = perm_string::literal("Clock:LPM_Polarity");
-	    ff_clk->attribute(polarity, verinum("INVERT"));
+	    ff_negedge = true;
 
 	    if (debug_synth2) {
 		  cerr << get_fileline() << ": debug: "
@@ -1839,8 +1796,9 @@ bool NetEvWait::synth_sync(Design*des, NetScope*scope,
       }
 
 	/* Synthesize the input to the DFF. */
-      bool flag = statement_->synth_sync(des, scope, ff_clk, ff_ce,
-					 ff_aclr, ff_aset,
+      bool flag = statement_->synth_sync(des, scope,
+					 ff_negedge, ff_clk, ff_ce,
+					 ff_aclr, ff_aset, ff_aset_value,
 					 nex_map, nex_out, events);
 
       return flag;
@@ -1861,6 +1819,7 @@ bool NetProcTop::synth_sync(Design*des)
 
       NexusSet nex_set;
       statement_->nex_output(nex_set);
+      vector<verinum> aset_value(nex_set.size());
 
 	/* Make a model FF that will connect to the first item in the
 	   set, and will also take the initial connection of clocks
@@ -1895,7 +1854,10 @@ bool NetProcTop::synth_sync(Design*des)
 	// Connect the input later.
 
 	/* Synthesize the input to the DFF. */
-      bool flag = statement_->synth_sync(des, scope(), clock, ce, aclr, aset,
+      bool negedge = false;
+      bool flag = statement_->synth_sync(des, scope(),
+					 negedge, clock, ce,
+					 aclr, aset, aset_value,
 					 nex_set, nex_d,
 					 vector<NetEvProbe*>());
       if (! flag) {
@@ -1914,9 +1876,10 @@ bool NetProcTop::synth_sync(Design*des)
 	    }
 
 	    NetFF*ff2 = new NetFF(scope(), scope()->local_symbol(),
-				  nex_set[idx].wid);
+				  negedge, nex_set[idx].wid);
 	    des->add_node(ff2);
 	    ff2->set_line(*this);
+	    ff2->aset_value(aset_value[idx]);
 
 	    NetNet*tmp = nex_d.pin(idx).nexus()->pick_any_net();
 	    tmp->set_line(*this);

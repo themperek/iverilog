@@ -1047,17 +1047,8 @@ int main(int argc, char **argv)
 
       if (version_flag || verbose_flag) {
 	    printf("Icarus Verilog version " VERSION " (" VERSION_TAG ")\n\n");
-	    printf("Copyright 1998-2013 Stephen Williams\n\n");
+	    printf("Copyright 1998-2015 Stephen Williams\n\n");
 	    puts(NOTICE);
-      }
-
-      if (synth_flag) {
-	    fprintf(stderr, "Warning: Synthesis is not currently being "
-	                    "maintained and may not\n");
-	    fprintf(stderr, "         function correctly. V0.8 was the "
-	                    "last release branch to\n");
-	    fprintf(stderr, "         have active synthesis development "
-	                    "and support!\n");
       }
 
 	/* Make a common conf file path to reflect the target. */

@@ -23,7 +23,9 @@
 # include  "sequential.h"
 # include  "expression.h"
 # include  "architec.h"
+# include  "package.h"
 # include  "compiler.h"
+# include  "subprogram.h"
 # include  <iostream>
 # include  <cstdio>
 # include  <typeinfo>
@@ -205,12 +207,29 @@ void VariableSeqAssignment::write_to_stream(ostream&fd)
       fd << ";" << endl;
 }
 
-int ProcedureCall::emit(ostream&out, Entity*, ScopeBase*)
+int ProcedureCall::emit(ostream&out, Entity*ent, ScopeBase*scope)
 {
-      out << " // " << get_fileline() << ": internal error: "
-      << "I don't know how to emit this sequential statement! "
-      << "type=" << typeid(*this).name() << endl;
-      return 1;
+      int errors = 0;
+
+      std::vector<Expression*>params(param_list_->size());
+      int i = 0;
+      for(std::list<named_expr_t*>::iterator it = param_list_->begin();
+              it != param_list_->end(); ++it)
+          params[i++] = (*it)->expr();
+
+      const Package*pkg = dynamic_cast<const Package*> (def_->get_parent());
+      if (pkg != 0)
+          out << "\\" << pkg->name() << " ::";
+
+      errors += def_->emit_name(params, out, ent, scope);
+
+      out << " (";
+      if(param_list_) {
+	    errors += def_->emit_args(params, out, ent, scope);
+      }
+
+      out << ");" << endl;
+      return errors;
 }
 
 int LoopStatement::emit_substatements(ostream&out, Entity*ent, ScopeBase*scope)
@@ -450,4 +469,130 @@ int ForLoopStatement::emit_runtime_(ostream&out, Entity*ent, ScopeBase*scope)
     out << " ? 1 : -1))";
 
     return errors;
+}
+
+int ReportStmt::emit(ostream&out, Entity*, ScopeBase*)
+{
+    out << "$display(\"";
+
+    switch(severity_)
+    {
+        case NOTE:          out << "** Note: "; break;
+        case WARNING:       out << "** Warning: "; break;
+        case ERROR:         out << "** Error: "; break;
+        case FAILURE:       out << "** Failure: "; break;
+        case UNSPECIFIED:   ivl_assert(*this, false); break;
+    }
+
+    out << msg_;
+    out << " (" << get_fileline() << ")\");";
+
+    if(severity_ == FAILURE)
+        out << "$finish();";
+
+    out << std::endl;
+
+    return 0;
+}
+
+void ReportStmt::write_to_stream(std::ostream&fd)
+{
+    fd << "report \"" << msg_ << "\"" << std::endl;
+
+    fd << "severity ";
+    switch(severity_)
+    {
+        case NOTE:          fd << "NOTE"; break;
+        case WARNING:       fd << "WARNING"; break;
+        case ERROR:         fd << "ERROR"; break;
+        case FAILURE:       fd << "FAILURE"; break;
+        case UNSPECIFIED:   break;
+    }
+    fd << ";" << std::endl;
+}
+
+int AssertStmt::emit(ostream&out, Entity*ent, ScopeBase*scope)
+{
+    int errors = 0;
+
+    out << "if(!(";
+    errors += cond_->emit(out, ent, scope);
+    out << ")) begin" << std::endl;
+    errors += ReportStmt::emit(out, ent, scope);
+    out << "end" << std::endl;
+
+    return errors;
+}
+
+void AssertStmt::write_to_stream(std::ostream&fd)
+{
+    fd << "assert ";
+    cond_->write_to_stream(fd);
+    fd << std::endl;
+    ReportStmt::write_to_stream(fd);
+}
+
+int WaitForStmt::emit(ostream&out, Entity*ent, ScopeBase*scope)
+{
+    int errors = 0;
+
+    out << "#(";
+    errors += delay_->emit(out, ent, scope);
+    out << ")";
+
+    return errors;
+}
+
+void WaitForStmt::write_to_stream(std::ostream&fd)
+{
+    fd << "wait for ";
+    delay_->write_to_stream(fd);
+}
+
+int WaitStmt::emit(ostream&out, Entity*ent, ScopeBase*scope)
+{
+    int errors = 0;
+
+    switch(type_) {
+        case ON:
+            out << "@(";
+            break;
+
+        case UNTIL:
+            if(!sens_list_.empty()) {
+                out << "@(";
+                for(std::set<ExpName*>::iterator it = sens_list_.begin();
+                        it != sens_list_.end(); ++it) {
+                    if(it != sens_list_.begin())
+                        out << ",";
+
+                    (*it)->emit(out, ent, scope);
+                }
+
+                out << ");";
+            }
+
+            out << "wait(";
+            break;
+    }
+
+    errors += expr_->emit(out, ent, scope);
+    out << ");" << endl;
+
+    return errors;
+}
+
+void WaitStmt::write_to_stream(std::ostream&fd)
+{
+    switch(type_) {
+        case ON:
+            fd << "wait on ";
+            break;
+
+        case UNTIL:
+            fd << "wait until ";
+            break;
+    }
+
+    expr_->write_to_stream(fd);
 }
