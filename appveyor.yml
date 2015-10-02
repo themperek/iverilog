@@ -1,22 +1,10 @@
 platform:
   - x64
 environment:
-  global:
-    MSYS2_BASEVER: 20150512
-    MSYS2_ARCH: x86_64
   matrix:
-    #- MSYSTEM: MINGW32
     - MSYSTEM: MINGW64
-      #CPPFLAGS: -fpermissive
 install:
-  #- appveyor DownloadFile "http://kent.dl.sourceforge.net/project/msys2/Base/%MSYS2_ARCH%/msys2-base-%MSYS2_ARCH%-%MSYS2_BASEVER%.tar.xz" -FileName "msys2.tar.xz"
-  #- 7z x msys2.tar.xz
-  #- 7z x msys2.tar > NUL
-  #- msys64\usr\bin\bash -lc ""
-  ##- msys64\usr\bin\bash -lc "for i in {1..3}; do pacman --noconfirm -Suy mingw-w64-x86_64-gcc mingw-w64-i686-gcc make perl autoconf flex bison gperf && break || sleep 15; done"
-  #- if [%MSYSTEM%]==[MINGW32] msys64\usr\bin\bash -lc "for i in {1..3}; do pacman --noconfirm -Suy mingw-w64-i686-gcc make perl autoconf flex bison gperf && break || sleep 15; done"
-  #- if [%MSYSTEM%]==[MINGW64] msys64\usr\bin\bash -lc "for i in {1..3}; do pacman --noconfirm -Suy mingw-w64-x86_64-gcc make perl autoconf flex bison gperf && break || sleep 15; done"
-  - git clone https://github.com/steveicarus/ivtest.git
+ - git clone https://github.com/steveicarus/ivtest.git
 build_script:
   - C:\msys64\usr\bin\bash -lc "cd /c/projects/iverilog; exec 0</dev/null; ./autoconf.sh; ./configure; make; make install"
 test_script: 
