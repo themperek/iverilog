@@ -42,7 +42,7 @@ before_script:
   - ls /c/
   - ls /c/msys64/usr/bin
   - ls /c/msys64
-  - set PATH=c:\msys64\usr\bin:%PATH%
+  - export PATH=/c/msys64/usr/bin:%PATH%
   - set
   - gcc -v
   - pacman-key --init
@@ -50,12 +50,12 @@ before_script:
   #- PowerShell -Command "C:\msys64\usr\bin\pacman.exe -Q"
   - pacman -Q
   
-  - dir c:\
-  - dir c:\tools
-  - dir c:\tools\mingw64\bin
+  #- dir c:\
+  #- dir c:\tools
+  #- dir c:\tools\mingw64\bin
   
   - which gcc
-  - mingw-get install autoconf
+  #- mingw-get install autoconf
   - autoconf
   - ./configure --prefix=$HOME
 
