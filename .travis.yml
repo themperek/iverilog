@@ -1,8 +1,15 @@
 language: cpp
 
-compiler:
-  #- clang
-  - gcc
+include:
+  - os: linux
+    compiler:
+      - clang
+  - os: linux
+    compiler:
+      - gcc        
+  - os: windows
+    compiler:
+      - gcc
 
 addons:
   apt:
@@ -14,10 +21,7 @@ sudo: false
 notifications:
   email: false
 
-os:
-  - linux
-  - windows
-  
+
 install:
   - git clone https://github.com/steveicarus/ivtest.git
   - export PATH=$HOME/bin:$PATH
