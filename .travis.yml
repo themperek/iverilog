@@ -1,7 +1,7 @@
 language: cpp
 
 compiler:
-  - clang
+  #- clang
   - gcc
 
 addons:
@@ -25,8 +25,8 @@ install:
  
 before_script:
   - gcc -v
-  - autoconf
   - mingw-get install autoconf
+  - autoconf
   - ./configure --prefix=$HOME
 
 script:
