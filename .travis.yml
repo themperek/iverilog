@@ -59,10 +59,10 @@ before_script:
   #- pacman -Q
 
 script:
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:$PATH ./autoconf.sh'"
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:$PATH ./configure --prefix=/usr'"
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:$PATH make'"
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:$PATH make install'"
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'iverilog -h'"
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'export PATH=/mingw64/bin:$PATH; cd $HOME/ivtest; perl vvp_reg.pl'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:/bin ./autoconf.sh'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:/bin ./configure --prefix=/usr'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:/bin make'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:/bin make install'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:/bin iverilog -h'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'export PATH=/mingw64/bin:/bin; cd $HOME/ivtest; perl vvp_reg.pl'"
   
