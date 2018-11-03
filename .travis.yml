@@ -42,8 +42,8 @@ before_script:
   - ls /c/
   - ls /c/msys64/usr/bin
   - ls /c/msys64
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman -Q'"
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman -S mingw-w64-x86_64-toolchain'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -Q'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -S mingw-w64-x86_64-toolchain'"
   - export PATH=/c/msys64/usr/bin:%PATH%
   - set
   - gcc -v
