@@ -13,13 +13,20 @@ sudo: false
 
 notifications:
   email: false
+
+os:
+  # - linux
+  - windows
   
 install:
  - git clone https://github.com/steveicarus/ivtest.git
+ - gcc -v
  - export PATH=$HOME/bin:$PATH
  
 before_script:
-  -  autoconf
+  - gcc -v
+  - autoconf
+  - mingw-get install autoconf
   - ./configure --prefix=$HOME
 
 script:
