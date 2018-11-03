@@ -20,10 +20,11 @@ os:
   
 install:
  - git clone https://github.com/steveicarus/ivtest.git
- - gcc -v
+ #- gcc -v
  #- export PATH=$HOME/bin:$PATH
  
 before_script:
+  - which gcc
   - gcc -v
   
   - dir c:\
