@@ -24,12 +24,25 @@ install:
  #- export PATH=$HOME/bin:$PATH
  
 before_script:
+
   - which gcc
   - ls /c/tools/mingw64/bin
   - ls /c/tools/mingw64
   - ls /c/tools
   - ls /c
   - gcc -v
+ 
+  - PowerShell -Command Invoke-WebRequest -outfile 7zsetup.exe http://www.7-zip.org/a/7z1604-x64.exe
+  - PowerShell -Command Invoke-WebRequest  -outfile msys2-x86_64-latest.tar.xz http://repo.msys2.org/distrib/msys2-x86_64-latest.tar.xz  
+
+  - PowerShell -Command Start-Process .\7zsetup -ArgumentList '/S /D=c:/7zip' -Wait
+  - PowerShell -Command C:\7zip\7z e msys2-x86_64-latest.tar.xz -Wait
+  - PowerShell -Command C:\7zip\7z x msys2-x86_64-latest.tar -o"C:\\" 
+
+  - ls /c/
+  - export PATH=/c/msys64/usr/bin:$PATH
+  - gcc -v
+  - pacman -Q
   
   - dir c:\
   - dir c:\tools
