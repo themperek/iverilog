@@ -1,15 +1,16 @@
 language: cpp
 
-include:
-  - os: linux
-    compiler:
-      - clang
-  - os: linux
-    compiler:
-      - gcc        
-  - os: windows
-    compiler:
-      - gcc
+matrix:
+  include:
+    - os: linux
+      compiler:
+        - clang
+    - os: linux
+      compiler:
+        - gcc        
+    - os: windows
+      compiler:
+        - gcc
 
 addons:
   apt:
