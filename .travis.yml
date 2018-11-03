@@ -39,18 +39,24 @@ before_script:
   - PowerShell -Command "C:\7zip\7z e msys2-x86_64-latest.tar.xz -Wait"
   - PowerShell -Command "C:\7zip\7z x msys2-x86_64-latest.tar -oC:\\" 
 
-  - ls /c/
-  - ls /c/msys64/usr/bin
-  - ls /c/msys64
+  #- ls /c/
+  #- ls /c/msys64/usr/bin
+  #- ls /c/msys64
   - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -Q'"
   - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -S mingw-w64-x86_64-toolchain'"
-  - export PATH=/c/msys64/usr/bin:%PATH%
-  - set
-  - gcc -v
-  - pacman-key --init
+  
+  
+  
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc './autoconf.sh;./configure --prefix=/usr'"
+  
+  
+  #- export PATH=/c/msys64/usr/bin:%PATH%
+  #- set
+  #- gcc -v
+  #- pacman-key --init
   #- bash -lc "pacman-key --init"
   #- PowerShell -Command "C:\msys64\usr\bin\pacman.exe -Q"
-  - pacman -Q
+  #- pacman -Q
   
   #- dir c:\
   #- dir c:\tools
@@ -59,7 +65,7 @@ before_script:
   - which gcc
   #- mingw-get install autoconf
   - autoconf
-  - ./configure --prefix=$HOME
+
 
 script:
   - make; make install
