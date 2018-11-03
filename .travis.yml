@@ -43,7 +43,7 @@ before_script:
   #- ls /c/msys64/usr/bin
   #- ls /c/msys64
   #- C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -Q'
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -S mingw-w64-x86_64-toolchain'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -S  base-devel mingw-w64-x86_64-toolchain'"
   
   
   
@@ -57,16 +57,12 @@ before_script:
   #- bash -lc "pacman-key --init"
   #- PowerShell -Command "C:\msys64\usr\bin\pacman.exe -Q"
   #- pacman -Q
-  
-  #- dir c:\
-  #- dir c:\tools
-  #- dir c:\tools\mingw64\bin
-  
-  #- which gcc
-  #- mingw-get install autoconf
-  #- autoconf
-
 
 script:
-  - make; make install
-  - cd ivtest; perl vvp_reg.pl
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:$PATH ./autoconf.sh'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:$PATH ./configure --prefix=/usr'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:$PATH make'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'PATH=/mingw64/bin:$PATH make install'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'iverilog -h'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'export PATH=/mingw64/bin:$PATH; cd $HOME/ivtest; perl vvp_reg.pl'"
+  
