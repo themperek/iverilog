@@ -44,8 +44,9 @@ before_script:
   - ls /c/msys64
   - set PATH=c:\msys64\usr\bin:%PATH%
   - gcc -v
-  - bash -lc "pacman-key --init"
-  - PowerShell -Command "C:\msys64\usr\bin\pacman.exe -Q"
+  - pacman-key --init
+  #- bash -lc "pacman-key --init"
+  #- PowerShell -Command "C:\msys64\usr\bin\pacman.exe -Q"
   - pacman -Q
   
   - dir c:\
