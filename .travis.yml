@@ -40,7 +40,7 @@ before_script:
   - PowerShell -Command "C:\7zip\7z x msys2-x86_64-latest.tar -oC:\\" 
 
   - ls /c/
-  - SET PATH c:/msys64/usr/bin:%PATH%
+  - set PATH=c:/msys64/usr/bin:%PATH%
   - gcc -v
   - pacman -Q
   
