@@ -43,6 +43,7 @@ before_script:
   - ls /c/msys64/usr/bin
   - ls /c/msys64
   - set PATH=c:\msys64\usr\bin:%PATH%
+  - set
   - gcc -v
   - pacman-key --init
   #- bash -lc "pacman-key --init"
