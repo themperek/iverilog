@@ -47,7 +47,7 @@ before_script:
   
   
   
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc './autoconf.sh;./configure --prefix=/usr'"
+  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'set; pwd'"
   
   
   #- export PATH=/c/msys64/usr/bin:%PATH%
