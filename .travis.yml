@@ -42,7 +42,7 @@ before_script:
   #- ls /c/
   #- ls /c/msys64/usr/bin
   #- ls /c/msys64
-  - C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -Q'
+  #- C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -Q'
   - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -S mingw-w64-x86_64-toolchain'"
   
   
