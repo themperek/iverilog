@@ -25,11 +25,11 @@ install:
  
 before_script:
 
-  - which gcc
-  - ls /c/tools/mingw64/bin
-  - ls /c/tools/mingw64
-  - ls /c/tools
-  - ls /c
+  #- which gcc
+  #- ls /c/tools/mingw64/bin
+  #- ls /c/tools/mingw64
+  #- ls /c/tools
+  #- ls /c
   #- gcc -v
  
   - PowerShell -Command "Invoke-WebRequest -outfile 7zsetup.exe http://www.7-zip.org/a/7z1604-x64.exe"
@@ -42,7 +42,7 @@ before_script:
   #- ls /c/
   #- ls /c/msys64/usr/bin
   #- ls /c/msys64
-  - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -Q'"
+  - C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -Q'
   - PowerShell -Command "C:\msys64\usr\bin\bash -lc 'pacman --noconfirm -S mingw-w64-x86_64-toolchain'"
   
   
@@ -62,9 +62,9 @@ before_script:
   #- dir c:\tools
   #- dir c:\tools\mingw64\bin
   
-  - which gcc
+  #- which gcc
   #- mingw-get install autoconf
-  - autoconf
+  #- autoconf
 
 
 script:
