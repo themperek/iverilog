@@ -30,7 +30,7 @@ before_script:
   - ls /c/tools/mingw64
   - ls /c/tools
   - ls /c
-  - gcc -v
+  #- gcc -v
  
   - PowerShell -Command "Invoke-WebRequest -outfile 7zsetup.exe http://www.7-zip.org/a/7z1604-x64.exe"
   - PowerShell -Command "Invoke-WebRequest -outfile msys2-x86_64-latest.tar.xz http://repo.msys2.org/distrib/msys2-x86_64-latest.tar.xz" 
@@ -40,8 +40,11 @@ before_script:
   - PowerShell -Command "C:\7zip\7z x msys2-x86_64-latest.tar -oC:\\" 
 
   - ls /c/
+  - ls /c/msys64/usr/bin
+  - ls /c/msys64
   - set PATH=c:/msys64/usr/bin:%PATH%
   - gcc -v
+  - C:\msys64\usr\bin\pacman.exe -Q
   - pacman -Q
   
   - dir c:\
