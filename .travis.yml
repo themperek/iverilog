@@ -25,6 +25,10 @@ install:
  
 before_script:
   - gcc -v
+  - dir C:\tools\mingw64\bin\
+  - dir C:\
+  - dir C:\tools
+  - which gcc
   - mingw-get install autoconf
   - autoconf
   - ./configure --prefix=$HOME
