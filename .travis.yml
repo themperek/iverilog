@@ -21,13 +21,15 @@ os:
 install:
  - git clone https://github.com/steveicarus/ivtest.git
  - gcc -v
- - export PATH=$HOME/bin:$PATH
+ #- export PATH=$HOME/bin:$PATH
  
 before_script:
   - gcc -v
-  - dir C:\tools\mingw64\bin\
-  - dir C:\
-  - dir C:\tools
+  
+  - dir c:\
+  - dir c:\tools
+  - dir c:\tools\mingw64\bin
+  
   - which gcc
   - mingw-get install autoconf
   - autoconf
