@@ -26,6 +26,9 @@ install:
 before_script:
   - which gcc
   - ls /c/tools/mingw64/bin
+  - ls /c/tools/mingw64
+  - ls /c/tools
+  - ls /c
   - gcc -v
   
   - dir c:\
