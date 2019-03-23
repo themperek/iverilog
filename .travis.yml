@@ -21,8 +21,8 @@ jobs:
         - git clone https://github.com/steveicarus/ivtest.git
         - export PATH=$HOME/bin:$PATH
       script:
-        - autoconf; fi
-        - ./configure --prefix=$HOME; fi
+        - autoconf
+        - ./configure --prefix=$HOME
         - make
         - make install
         - cd ivtest
@@ -31,6 +31,8 @@ jobs:
     - stage: Test
       os: windows
       before_install:
+        - git clone https://github.com/steveicarus/ivtest.git
+        - export PATH=$HOME/bin:$PATH
         - PowerShell -Command "Invoke-WebRequest -outfile 7zsetup.exe http://www.7-zip.org/a/7z1604-x64.exe"
         - PowerShell -Command "Invoke-WebRequest -outfile msys2-x86_64-latest.tar.xz http://repo.msys2.org/distrib/msys2-x86_64-latest.tar.xz"
         - PowerShell -Command "Start-Process .\7zsetup -ArgumentList '/S /D=c:/7zip' -Wait"
